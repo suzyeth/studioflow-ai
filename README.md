@@ -110,9 +110,12 @@ track actually requires. Both are blocked on account access rather than code. Se
   intent for each specialist agent.
 - [Deployment Notes](docs/DEPLOYMENT.md) - local service and Cloud Run
   deployment path.
-- ~~[Second Pass Design](docs/DESIGN.md)~~ - **superseded, kept for history only.**
-  An abandoned concept (attention-driven editing timeline, ClickHouse) that does not
-  describe this codebase. Do not read it as documentation.
+- [Demo Script](docs/DEMO_SCRIPT.md) - the four-minute demo, rehearsal sheet and
+  failure plan.
+
+An earlier design doc for a different, abandoned concept was removed from this
+repository. It described an attention-driven editing timeline on ClickHouse and had
+nothing to do with this codebase.
 
 ## Current Prototype
 

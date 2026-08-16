@@ -284,8 +284,12 @@ spine (agent network, cloud architecture, demo script, phased build plan).
 [docs/AGENT_CONTRACTS.md](docs/AGENT_CONTRACTS.md) defines the JSON in/out envelope
 every specialist agent must honor once real models are wired in — implement against
 it rather than inventing new shapes.
-[docs/DESIGN.md](docs/DESIGN.md) is an **earlier, abandoned** concept (attention-driven
-editing timeline, ClickHouse). It is kept for reference and does not describe this code.
+[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) is the four-minute demo: a rehearsal sheet
+with a pre-flight checklist and a failure plan, because the rules require unedited live
+execution and there is no cut available to hide a step that hangs.
+
+An earlier `docs/DESIGN.md` described a different, abandoned concept and was removed
+from the repository before it was published.
 
 ## Scope guardrails (from the plan)
 
