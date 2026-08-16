@@ -146,5 +146,8 @@ not change whether the project satisfies the track.
       nothing about it. See the table in `README.md`.
 - [ ] `docs/ALL_THINGS_AGENTIC_PLAN.md` lists a Dashboard page that was never built
       (the fourth view is Cloud Proof instead). Either build it or correct the plan.
-- [ ] `production-heuristics.js` is 475 lines and growing with each Critic check —
-      splitting the checks out is the natural next seam.
+- [x] ~~`production-heuristics.js` is 475 lines and growing with each Critic check —
+      splitting the checks out is the natural next seam.~~ Done: the checks live in
+      `critic-checks.js` as a `CHECKS` array, and `production-heuristics.js` is back
+      to 378 lines of generators. Proved behaviour-preserving by snapshotting 53
+      cases / 66 findings before and after.

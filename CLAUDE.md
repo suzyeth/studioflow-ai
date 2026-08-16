@@ -82,6 +82,16 @@ Five files carry the whole system; the split matters:
 - **[intake-heuristics.js](intake-heuristics.js)** — keyless brief parsing, the
   contract validator, and `toFields`/`summarize`. Both the server agent and the
   browser's offline path go through it, which is what keeps the two paths identical.
+- **[critic-checks.js](critic-checks.js)** — the Critic's checks, one entry per
+  constraint class in `CHECKS`, plus the keyword helpers only they use. Split out of
+  `production-heuristics.js` once the checks outgrew it. `reviewShotList` is now a
+  dispatcher that builds a context and concatenates what each check returns, so
+  **checks run in array order and the review queue reads in that order** — reordering
+  the array reorders the queue. A check returns `[]` when it has nothing to say,
+  which is the common case.
+- **[production-heuristics.js](production-heuristics.js)** — the generators (plan,
+  shot list, asset manifest, prompt pack) and the packet markdown. It no longer
+  contains any check.
 - **[view-model.js](view-model.js)** — pure view helpers (`escapeHtml`,
   `normalizeApiRun`) shared by the browser and the tests. No DOM access belongs here;
   that is what keeps it testable.
@@ -110,7 +120,7 @@ Five files carry the whole system; the split matters:
 - **[app.js](app.js)** — state, API calls, polling, orchestration, events, plus the
   offline path (see below).
 
-### The dual-runtime constraint on `data.js` and `view-model.js`
+### The dual-runtime constraint on the top-level browser scripts
 
 Both files are loaded two ways and must satisfy both:
 
@@ -123,6 +133,15 @@ Both files are loaded two ways and must satisfy both:
    data for edits made inside the same second. Data globals are handed back as
    `structuredClone` copies; `loadViewModel` passes `clone: false` because
    `structuredClone` cannot copy functions.
+
+   It takes **an array of files**, evaluated into one shared context, which is how
+   `production-heuristics.js` can call `STUDIOFLOW_CRITIC` — the same way two
+   `<script>` tags share `window`. A top-level `const` is visible to every later
+   script in the same context but never becomes a property of the sandbox object,
+   which is why the global still has to be assigned out explicitly at the end.
+   `loadProductionHeuristics` loads `critic-checks.js` before
+   `production-heuristics.js`, mirroring the order in `index.html`; keep the two in
+   step so the runtimes cannot drift.
 
 So each must stay a bare `const NAME = {...}` script — adding `module.exports`,
 `require`, `import`, or `export` breaks one runtime or the other. This is also the
@@ -185,11 +204,16 @@ revision enforces the fix. If you "improve" the Shot Agent to satisfy every cons
 up front, the Critic finds nothing and the review gate becomes decorative. The first
 pass has to be able to be wrong.
 
-Adding a Critic check is the highest-value work available. Each one takes a
-constraint class the brief can express and verifies the artifacts honour it. Two
-rules: the check must read real generated output (not restate the brief), and it must
-stay silent when the brief says nothing about it — inventing findings to make the
-queue look busy destroys the only claim this project can defend.
+Adding a Critic check is the highest-value work available, and since the split it
+costs one entry in `CHECKS` in [critic-checks.js](critic-checks.js) rather than
+another branch inside a 300-line function. Each one takes a constraint class the
+brief can express and verifies the artifacts honour it. Two rules: the check must
+read real generated output (not restate the brief), and it must stay silent when the
+brief says nothing about it — inventing findings to make the queue look busy destroys
+the only claim this project can defend.
+
+Prove a new check both fires and stays quiet. The cheap way to prove it is guarded at
+all: break it on purpose and confirm `node tests/production.test.js` goes red.
 
 Findings count varies by brief, and zero findings is a valid outcome: `createWorkflowRun`
 lands such a run directly on `approved` with `packet_ready` set, and the critic task

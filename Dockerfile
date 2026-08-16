@@ -10,6 +10,7 @@ RUN npm ci --omit=dev
 COPY server.js ./
 COPY data.js ./
 COPY intake-heuristics.js ./
+COPY critic-checks.js ./
 COPY production-heuristics.js ./
 COPY view-model.js ./
 COPY app-render.js ./
