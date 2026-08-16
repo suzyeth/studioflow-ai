@@ -1,8 +1,6 @@
 # StudioFlow AI
 
-*Built for the All Things Agentic Hackathon — Taskmaster track. The repository is
-still named `agentic-cinema` after an earlier, abandoned concept; the project is
-StudioFlow AI.*
+*Built for the All Things Agentic Hackathon — **The Collaborative Partner** track.*
 
 **A constraint-compliance workflow for video briefs.** It turns an ambiguous brief
 into a production packet where
@@ -58,6 +56,35 @@ The Intake Agent converts a rough brief into the structured brief defined in
 [docs/AGENT_CONTRACTS.md](docs/AGENT_CONTRACTS.md), and raises clarifying questions
 only for missing information that would block planning. Model output is validated
 against the contract before it is allowed to become an artifact.
+
+### The clarification loop, with real numbers
+
+Give it a brief that is missing almost everything — `A launch film for a canned coffee
+brand.` — and it does not guess quietly. It asks three questions, each carrying which
+field the answer fills and why it blocks planning, and the Critic reports that it
+proceeded on an assumption:
+
+```text
+3 open questions   audience: not stated   platform: not stated   duration: null
+findings: assumed-duration, undefined-style, open-questions
+first shot: 0:00-0:04     (a 30-second default nobody asked for)
+```
+
+Answer them — `late-shift nurses`, `TikTok`, `15 seconds` — and the answers are folded
+back in as labelled brief lines, so intake reads them exactly the way it read the
+original prose. The whole workflow reruns, because everything downstream of intake
+depends on it:
+
+```text
+0 open questions   audience: late-shift nurses   platform: TikTok   duration: 15
+findings: undefined-style
+first shot: 0:00-0:02     (re-timed for the real runtime)
+```
+
+Three things worth noticing. The findings went from three to one. The one that survived
+is `undefined-style` — the question nobody answered, still honestly reported. And the
+shot list **re-timed itself**: the answers did not just fill fields in a form, they
+changed the artifact.
 
 The model is chosen by environment, and the workflow runs with no configuration at
 all:
@@ -397,7 +424,24 @@ than a single-turn generator:
 
 ## Hackathon Strategy
 
-Primary track: **Taskmaster**
+Track: **The Collaborative Partner** — "an agent that leads the way and takes notes…
+asks clarifying questions, guides the user step-by-step, and has a clear way to capture
+feedback, so it constantly adapts to the user's unique way of thinking."
+
+That is a description of this system rather than an aspiration for it, and each clause
+maps to something you can run:
+
+| The track asks for | Where it is |
+| --- | --- |
+| Ingesting messy, unstructured input | A paragraph of prose becomes a structured brief with typed fields |
+| Asking clarifying questions | Intake raises them **only** for information that would block planning, each carrying `fills` (which field an answer belongs to) and `why_it_matters` |
+| Guiding the user step by step | The task graph, then a review queue of findings that each name the agents responsible |
+| A clear way to capture feedback | Approve or revise, per finding |
+| **Adapting to the user** | Corrections accumulate in `run.enforce` and every later rerun carries them. The adaptation is state, not a claim |
+| Synthesising rather than reading | Six artifacts generated from the brief, re-versioned with different content when a correction lands |
+
+The system was not reframed to fit the track. The human review gate has been the
+product since the first commit — the loop is what a single prompt cannot do.
 
 Technical posture, and where each part actually stands:
 

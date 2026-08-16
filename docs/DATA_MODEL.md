@@ -10,7 +10,7 @@ future API/Firestore implementation.
   "id": "proj_tokyo_coffee",
   "title": "Tokyo Night Market Coffee",
   "status": "draft | running | needs_review | approved | failed",
-  "track": "Taskmaster",
+  "track": "The Collaborative Partner",
   "created_at": "2026-08-10T00:00:00Z",
   "updated_at": "2026-08-10T00:00:00Z"
 }

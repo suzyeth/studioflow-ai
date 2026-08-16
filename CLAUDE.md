@@ -4,11 +4,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**StudioFlow AI** — an "All Things Agentic" hackathon MVP (Taskmaster track). The
-product is **constraint compliance for video briefs**, not creative generation: a
-brief becomes a production packet in which every stated constraint has been checked,
-and every failed check is traceable to the agent that caused it and the rerun that
-fixed it.
+**StudioFlow AI** — an "All Things Agentic" hackathon MVP, submitted to **The
+Collaborative Partner** track. The product is **constraint compliance for video
+briefs**, not creative generation: a brief becomes a production packet in which every
+stated constraint has been checked, and every failed check is traceable to the agent
+that caused it and the rerun that fixed it.
+
+The track was chosen to match the system, not the other way round. Taskmaster scores
+"completes a multi-step background workflow **without human intervention**", and this
+product's whole thesis is the human gate. Collaborative Partner asks for clarifying
+questions, step-by-step guidance, captured feedback, and adaptation to the user — all
+four of which already existed. When editing, protect them: the clarification loop
+(`/clarifications`) and the `run.enforce` accumulation are the two features the
+submission now rests on.
 
 Keep that framing when making changes. The creative prose is templated and known to
 be weak; the checking, routing, rerun, and audit trail are the product. Work that

@@ -2,7 +2,7 @@
 
 Status: Draft
 Hackathon: All Things Agentic Hackathon
-Primary track: Taskmaster
+Primary track: The Collaborative Partner (changed from Taskmaster — see below)
 Architecture posture: Enterprise-grade agentic workflow
 Deadline: 2026-09-01 08:00 GMT+8
 
@@ -43,8 +43,21 @@ multi-step workflows. StudioFlow AI maps directly to that:
 
 ## Recommended Prize Strategy
 
-Submit under **Taskmaster**, while borrowing the strongest enterprise-grade
-language from Fortified Enterprise Fleet.
+Submit under **The Collaborative Partner**.
+
+This plan originally said Taskmaster, and that was wrong. Taskmaster's judging
+criterion asks whether the agent "completes a multi-step background workflow
+**without human intervention**" — and the human review gate is this product's
+entire thesis, so the strongest thing about it would have been scored against it.
+
+Collaborative Partner asks for an agent that "asks clarifying questions, guides
+the user step-by-step, and has a clear way to capture feedback, so it constantly
+adapts to the user's unique way of thinking." Nothing had to be built to fit that
+description; the clarification loop, the review queue, and the accumulation of the
+reviewer's corrections in `run.enforce` were already there.
+
+Each track has one winner and $20,000, and a submission is associated with exactly
+one category, so this choice is worth more than any feature.
 
 This keeps scope achievable while still showing:
 

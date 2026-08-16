@@ -1,14 +1,20 @@
 # Demo script — 4 minutes, one take
 
+Track: **The Collaborative Partner**. The demo has to show the agent *collaborating* —
+asking, being answered, being corrected, and carrying the correction forward — not just
+executing. It adapts to the user **twice** on camera, which is the whole thesis of the
+track. Everything else is supporting evidence.
+
 The rules require **unedited live execution** and proof the backend is running on
 Google Cloud. That makes this a rehearsal sheet, not a storyboard: no cut can save a
 step that hangs, so every step below is either instant or has a stated fallback.
 
 Target **3:40**, hard ceiling 4:00. The margin is for speaking slower than you plan to.
 
-Narration is ~470 words. At a deliberate 135 wpm that is 3:29 of talking, which is the
-budget. If you are running long, the artifact tour (1:15–1:45) is the only section that
-can be cut on the fly without losing a scoring criterion.
+Narration is ~520 words. At a deliberate 135 wpm that is 3:51 — tight, so **read it
+aloud with a timer before recording** and trim your own asides rather than the script.
+If you must cut live, cut the second half of the Critic section (the "twelve checks"
+lines). Never cut the clarification loop or the revision: those two are the track.
 
 ---
 
@@ -44,15 +50,26 @@ knowing how long the run actually takes so you are not narrating into silence.
 
 ## The brief (clipboard)
 
-Verified to produce exactly two findings — one `high`, one `medium` — which is what the
-script below depends on. Do not improvise a different brief on camera.
+**The audience line is missing on purpose.** That is what makes the agent ask, which is
+the track's whole thesis. Do not improvise a different brief on camera — the timings
+below depend on this one producing exactly one question and, after it is answered,
+exactly two findings.
 
 ```text
 Create a 30-second launch film for a premium canned coffee brand entering the Tokyo night market.
-Audience: Young urban professionals.
 Style: Neon realism, cinematic, energetic.
 Constraints: Show the product in the first 5 seconds, avoid health claims, include a clear CTA, deliver for Instagram Reels.
 ```
+
+Verified behaviour, which the script narrates:
+
+| | Questions | Findings |
+| --- | --- | --- |
+| First run | 1 — Audience | `hero-window`, `missing-cta`, **`open-questions`** |
+| After answering `Young urban professionals` | 0 | `hero-window`, `missing-cta` |
+
+The second answer to have ready, in a second clipboard slot or typed live (it is three
+words): `Young urban professionals`
 
 ---
 
@@ -72,11 +89,11 @@ Constraints: Show the product in the first 5 seconds, avoid health claims, inclu
 
 **Screen:** switch to tab 2, `/api/health`. Let the JSON sit on screen for three seconds.
 
-> StudioFlow AI is not a video generator. It is a workflow system that produces a
-> production packet in which every stated constraint has been checked — and every failed
-> check is traceable to the agent that caused it and the rerun that fixed it. This is
-> running on Cloud Run, and the health endpoint reports which model is actually live:
-> Gemini three-point-six Flash, through the Google GenAI SDK.
+> StudioFlow AI is not a video generator. It is a collaborator: it reads the brief, asks
+> for what is missing, produces a production packet, and shows you where the packet
+> failed the brief — then takes your correction and carries it forward. This is running
+> on Cloud Run, and the health endpoint reports which model is actually live: Gemini
+> three-point-six Flash, through the Google GenAI SDK.
 
 **Point at `"intake_provider": "gemini"` with the cursor.** That single field is the
 "powered by Gemini" claim, evidenced rather than asserted.
@@ -95,26 +112,35 @@ Constraints: Show the product in the first 5 seconds, avoid health claims, inclu
 > production agents are deterministic, which is deliberate: I would rather the checking
 > be trustworthy than the prose be pretty.
 
-### 1:15–1:45 · Artifacts *(cut this section first if running long)*
+### 1:15–1:50 · It asks. You answer. It adapts. *(the track's thesis — never cut this)*
 
-**Screen:** the artifact list. Open the shot list.
+**Screen:** the clarifying question, then the review queue showing three findings.
 
-> Six artifacts, each generated from this brief — nothing here is canned. Each one
-> carries where it came from, so provenance is visible rather than implied. The shot
-> list opens on atmosphere and reveals the product at ten seconds.
+> It did the work — six artifacts, each generated from this brief, each carrying where
+> it came from. But notice what else it did. The brief never said who this is for, and
+> rather than quietly inventing an audience, it asked — and it says which field the
+> answer fills and why it blocks planning. Its own Critic then flagged the run as
+> proceeding on incomplete information.
 
-**Leave the shot list open. The next section refers to it.**
+**Answer the question: `Young urban professionals`. Submit.**
 
-### 1:45–2:25 · The Critic — this is the product
+> I answer, and the answer is folded back into the brief as a labelled line, so intake
+> reads it exactly the way it read the original prose. The whole workflow reruns,
+> because everything downstream of intake depends on it.
 
-**Screen:** the review queue, both findings visible.
+**Screen:** the queue is now two findings.
 
-> The Critic checked the artifacts against the brief and stopped the run. Two findings.
-> The first: the brief demanded the product inside five seconds, and the reveal landed
-> at ten. It found that by reading the generated shot list, not by restating the brief
-> back to me — and it names the two agents responsible.
+> Three findings became two. The one that disappeared is the one I just resolved.
+
+### 1:50–2:25 · The Critic — what a single prompt cannot do
+
+**Screen:** the review queue, both remaining findings visible.
+
+> The two that remain are real. The brief demanded the product inside five seconds, and
+> the reveal landed at ten. It found that by reading the generated shot list, not by
+> restating the brief back to me — and it names the agents responsible.
 >
-> It is just as important that this queue is short. Twelve checks ran against these
+> It matters just as much that this queue is short. Twelve checks ran against these
 > artifacts. Ten found nothing, because this brief gave them nothing to check. A review
 > queue is only worth reading if everything in it is real.
 
@@ -130,8 +156,12 @@ finding can take, not the number of checks that ran.)*
 > reruns only the two agents it named, with that constraint enforced.
 >
 > The shot list is now version two — and the first shot is the product, at zero seconds,
-> unobstructed. The content changed, not just the version number. That is the difference
-> between a review gate and a checkbox.
+> unobstructed. The content changed, not just the version number.
+>
+> And the correction is kept. It is not applied once and forgotten — it is held as state
+> and carried into every later rerun, so the system does not need to be told the same
+> thing twice. That is the second time in four minutes it adapted to me: once from a
+> question I answered, once from a correction I made.
 
 ### 3:00–3:20 · Approve, packet, audit trail
 
@@ -170,7 +200,9 @@ You cannot cut, so decide these now rather than freezing on camera.
 | --- | --- |
 | The run hangs past ~10 seconds | Say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
 | `/api/health` says `local` | **Stop. Do not record.** The central claim is not demonstrable. Fix the secret binding first. |
-| Findings come back different from two | You changed the brief. Stop, restore the exact text above, restart. |
+| The first run shows no clarifying question | You pasted a brief that has the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
+| The first run shows more than one question | Same cause, different direction: the brief lost more than the audience line. |
+| Findings are not three then two | You changed the brief. Stop, restore, restart. |
 | A poll 404s | You are on more than one instance. `--max-instances=1` was not applied. Stop and fix. |
 | You fluff a sentence | Keep going. It is a technical demo, not a performance. Restarting costs more than a stumble. |
 
