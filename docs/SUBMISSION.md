@@ -1,0 +1,143 @@
+# Devpost submission text
+
+Paste-ready. Track: **The Collaborative Partner**.
+
+---
+
+## What it does
+
+A creative brief arrives as a paragraph of prose. Buried in it are constraints — *show
+the product in the first five seconds, avoid health claims, include a call to action* —
+and the failure that actually costs money is that one of them quietly does not survive
+the process into the shot list, the asset plan, and the prompt pack. Nobody notices
+until the edit.
+
+**StudioFlow AI turns that brief into a production packet in which every stated
+constraint has been checked, and every failed check is traceable to the agent that
+caused it and the rerun that fixed it.**
+
+It is not a video generator, and it is not a chatbot. It is a collaborator: it reads
+the brief, asks for what is missing, does the work, shows you where its own output
+failed your brief, and carries your correction forward.
+
+### It asks before it assumes
+
+Give it `A launch film for a canned coffee brand.` and it does not invent an audience.
+It raises exactly the questions that block planning — never more — and each one carries
+which field the answer fills and why it matters. Its own Critic separately flags that
+the run proceeded on incomplete information.
+
+Answer them and the answers are folded back into the brief as labelled lines, so intake
+reads them exactly the way it read the original prose. The whole workflow reruns,
+because everything downstream of intake depends on it.
+
+| | Open questions | Findings | First shot |
+| --- | --- | --- | --- |
+| Before | 3 | `assumed-duration`, `undefined-style`, `open-questions` | 0:00–0:04 *(a 30s default nobody asked for)* |
+| After answering | 0 | `undefined-style` | 0:00–0:02 *(re-timed for the real 15s)* |
+
+Three things there are worth more than the feature list. The findings shrank. The one
+that survived is the question that was **not** answered, still honestly reported. And
+the shot list re-timed itself — the answers did not fill in a form, they changed the
+artifact.
+
+### It shows you where it failed you
+
+Six agents run asynchronously — Intake, Planning, Shot, Asset, Prompt, Critic — and the
+Critic checks the generated artifacts against the stated constraints. Twelve checks,
+each reading real generated output rather than restating the brief back to you, and
+each staying silent when the brief gives it nothing to check. A brief that satisfies
+its own constraints produces an empty review queue.
+
+The design decision that makes this real: **the Shot Agent deliberately does not read
+the constraints on its first pass.** It lays out a standard narrative structure. If it
+satisfied every constraint up front, the Critic would find nothing and the review gate
+would be decorative. The first pass has to be able to be wrong.
+
+### It carries your correction forward
+
+Each finding names the agents responsible and, where the fix is mechanical, the
+constraint that fixes it. Requesting a revision reruns *only* those agents with that
+constraint enforced: the shot list advances to v2 **with different content** — the
+product moves from 0:10 to 0:00 — records why it was rerun, and appends an audit event.
+
+The correction is not applied once and forgotten. It accumulates in the run's `enforce`
+state and every later rerun carries it, so the system never has to be told the same
+thing twice. That is the adaptation, implemented as state rather than asserted in a
+pitch.
+
+Agent actions and human decisions are distinguished in one audit trail, so the packet
+answers not just what was produced but why, and who decided.
+
+---
+
+## How we built it — technologies
+
+- **Gemini 3.6 Flash**, called through the **Google GenAI SDK** (`@google/genai`),
+  with structured JSON output and schema validation before any model output is allowed
+  to become an artifact.
+- **Cloud Run** for the service, built by **Cloud Build** from the repository
+  Dockerfile. **Secret Manager** holds the API key.
+- **Cloud Logging**, correlated by a `trace_id` carried on every task, artifact and
+  audit event.
+- **Node.js 24**, and deliberately nothing else. `@google/genai` is the only runtime
+  dependency in the project. The frontend is plain HTML, CSS and JavaScript with no
+  build step, which is what lets the same agent code run in the browser from `file://`
+  and on the server — one implementation, two runtimes, no drift.
+- Tests are four plain-`assert` suites, no framework.
+
+**What is not built, stated plainly:** only the Intake Agent calls a model — Planning,
+Shot, Asset, Prompt and Critic are deterministic generators, which is why the generated
+prose reads as structure rather than as writing. The job queue is in-process rather
+than Pub/Sub, and the run store is an in-memory map, so nothing survives a restart.
+Firestore is designed for but not wired up. The architecture diagram draws these dashed
+for exactly this reason. Every artifact carries a `generated_by` field so its
+provenance is visible rather than implied.
+
+## Data sources
+
+**None external.** The only input is the brief the user submits, and every artifact in
+a run is generated from it — there is no dataset, no corpus, and no scraped content.
+`data.js` holds task and artifact *labels* plus one default brief, and deliberately
+contains no generated sample output: if a shot list ever appeared in it, that would
+mean the agent meant to produce it was missing.
+
+## What we learned
+
+**A wrong finding costs more than a missed one.** The review queue is the only thing
+this product can defend, and it is worth nothing if anything in it might not be real.
+That principle decided several implementation details — high-severity checks match on
+whole words rather than substrings, because `ton` matching `tone` would put a fabricated
+violation in front of a human. Two rules govern every check: read real generated output,
+and stay silent when the brief says nothing about you.
+
+**Prove a check is guarded by breaking it.** Every Critic check was verified by
+deliberately breaking it and confirming the suite went red. Six mutations, six failures.
+A test that passes tells you nothing until you have seen it fail for the right reason.
+
+**Probe a library, do not read about it.** Moving Gemini onto the GenAI SDK, we ran it
+against a local stub server first and found two things no amount of documentation
+reading would have surfaced in time: the SDK appends its own API version, so a base URL
+carrying `/v1beta` silently becomes `/v1beta/v1beta`; and its `ApiError` has a status
+code but no status line in its message, so an adapter that does not re-wrap it breaks
+every downstream error string.
+
+**Two failure rules that pull in opposite directions, on purpose.** A model failure must
+never fail a run — network errors, malformed JSON and schema violations all degrade to
+the keyless parser, and the audit trail says so, because a demo has to survive a dead
+API key on stage. But a *misconfiguration* must fail loudly — naming a provider without
+its key refuses to start, rather than serving heuristic output while the operator
+believes Gemini is live. Silent success is the more dangerous failure.
+
+**Documentation drifts faster than you expect.** Three separate changes we made in one
+sitting turned parts of our own README into false statements — a "zero-dependency"
+claim, a file that no longer held what it said, a test count. A README that is wrong
+about the code is worse than no README, because a judge will find the discrepancy and
+correctly stop trusting the rest.
+
+**And the one that was worth more than any feature:** we very nearly submitted to the
+wrong track. The original plan targeted Taskmaster, whose judging criterion asks whether
+the agent completes a workflow *without human intervention* — while the human review
+gate is this product's entire thesis. The single strongest thing about the system would
+have been scored against it. Reading the criteria closely, late, was the highest-value
+hour of the build.
