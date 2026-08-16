@@ -19,8 +19,10 @@ async function main() {
     return;
   }
 
+  // GEMINI_BASE_URL carries no API version — the SDK appends its own. This
+  // script talks REST directly, so it has to add the version itself.
   const baseUrl = process.env.GEMINI_BASE_URL || GEMINI_BASE_URL;
-  const url = `${baseUrl}/models?key=${encodeURIComponent(apiKey)}&pageSize=200`;
+  const url = `${baseUrl}/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=200`;
 
   let payload;
   try {

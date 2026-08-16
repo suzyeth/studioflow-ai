@@ -2,7 +2,11 @@ FROM node:24-slim
 
 WORKDIR /app
 
-COPY package.json ./
+# Dependencies first so the layer caches across source edits. package-lock.json
+# is committed, so this is a reproducible install rather than a fresh resolve.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 COPY server.js ./
 COPY data.js ./
 COPY intake-heuristics.js ./

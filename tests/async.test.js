@@ -166,7 +166,11 @@ function readBody(req) {
   // Everything except authentication and real model behaviour.
   const geminiCalls = [];
   const gemini = await listen(async (req, res) => {
-    geminiCalls.push({ url: req.url, body: JSON.parse(await readBody(req)) });
+    geminiCalls.push({
+      url: req.url,
+      headers: req.headers,
+      body: JSON.parse(await readBody(req)),
+    });
     res.writeHead(200, { "content-type": "application/json" });
     res.end(
       JSON.stringify({
@@ -186,7 +190,12 @@ function readBody(req) {
   const geminiResult = await geminiProvider.generateJson({ system: "sys", user: "usr" });
 
   assert.deepEqual(geminiResult, { structured_brief: { goal: "g" } }, "fenced JSON is unwrapped");
-  assert.match(geminiCalls[0].url, /\/models\/gemini-test:generateContent\?key=test-key/);
+  // The GenAI SDK owns the path and appends the API version itself, and it
+  // authenticates with a header rather than a query parameter. Asserting both
+  // is what catches a baseUrl that already carries /v1beta (which would produce
+  // /v1beta/v1beta/...) and a key that never left the client.
+  assert.match(geminiCalls[0].url, /^\/v1beta\/models\/gemini-test:generateContent/);
+  assert.equal(geminiCalls[0].headers["x-goog-api-key"], "test-key");
   assert.equal(geminiCalls[0].body.systemInstruction.parts[0].text, "sys");
   assert.equal(geminiCalls[0].body.contents[0].parts[0].text, "usr");
   assert.equal(geminiCalls[0].body.generationConfig.responseMimeType, "application/json");

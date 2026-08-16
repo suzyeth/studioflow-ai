@@ -32,8 +32,13 @@ provenance is visible rather than implied. The docs in `docs/` describe the inte
 cloud implementation; treat them as the spec, not as a description of current
 behavior.
 
-Zero runtime dependencies by design (Node stdlib only, no `node_modules`). Keep it
-that way unless explicitly asked — it is what lets the prototype run anywhere.
+**One runtime dependency: `@google/genai`.** The project was built with zero, and
+that rule held until the hackathon rules forced it — All Things Agentic requires at
+least one Google agent framework (ADK / GenAI SDK / Antigravity SDK / Genkit), and a
+hand-rolled `fetch` against the REST endpoint does not qualify. Only the Gemini
+adapter uses it; `local` and `anthropic` remain stdlib-only. Do not add a second
+dependency without asking — the constraint is what keeps the prototype runnable
+anywhere, and it has now been spent.
 
 Outstanding work that needs a key, a cloud account, or software that is not
 installed lives in [TODO.md](TODO.md) — check it before assuming something is
@@ -80,9 +85,14 @@ Five files carry the whole system; the split matters:
 - **[view-model.js](view-model.js)** — pure view helpers (`escapeHtml`,
   `normalizeApiRun`) shared by the browser and the tests. No DOM access belongs here;
   that is what keeps it testable.
-- **[lib/llm.js](lib/llm.js)** — provider seam (`local` / `gemini` / `anthropic`),
-  plain `fetch` against REST endpoints so adding a provider costs an adapter, not a
-  dependency. The hosted adapters are unverified against live endpoints.
+- **[lib/llm.js](lib/llm.js)** — provider seam (`local` / `gemini` / `anthropic`).
+  Gemini goes through the `@google/genai` SDK (a rules requirement, see above);
+  Anthropic is still plain `fetch`. Two traps the SDK introduces: `GEMINI_BASE_URL`
+  must **not** carry `/v1beta` because the SDK appends the version itself, and the
+  SDK's `ApiError` has a `.status` but no status line in its message — the adapter
+  re-wraps it as `HTTP <code>: …` so `degraded_reason` and the audit trail keep the
+  shape the rest of the app expects. The hosted adapters are unverified against live
+  endpoints.
 - **[lib/agents/intake.js](lib/agents/intake.js)** — the Intake Agent. Validates
   model output against `docs/AGENT_CONTRACTS.md` before it can become an artifact,
   and degrades to the keyless parser on any failure.
