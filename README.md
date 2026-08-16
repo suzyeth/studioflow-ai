@@ -1,10 +1,11 @@
-# Agentic Cinema
+# StudioFlow AI
 
-Agentic Cinema is a workspace for building hackathon-grade agentic systems for
-creative production.
+*Built for the All Things Agentic Hackathon — Taskmaster track. The repository is
+still named `agentic-cinema` after an earlier, abandoned concept; the project is
+StudioFlow AI.*
 
-The current All Things Agentic direction is **StudioFlow AI**: a constraint-compliance
-workflow for video briefs. It turns an ambiguous brief into a production packet where
+**A constraint-compliance workflow for video briefs.** It turns an ambiguous brief
+into a production packet where
 **every stated constraint has been checked, and every failed check is traceable to the
 agent that caused it and the rerun that fixed it.**
 
@@ -40,6 +41,16 @@ behind the same routes. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 Every artifact carries `generated_by` so its provenance is visible rather than
 implied.
+
+## Architecture
+
+![StudioFlow AI architecture](docs/architecture.svg)
+
+The diagram draws the system **as built**, not the target architecture. Firestore and
+Pub/Sub are dashed and labelled planned because neither is wired up — drawing them
+solid would be a false claim. Also worth reading off it: only the Intake Agent calls a
+model, the run store is an in-memory `Map` that is lost on restart, and the same
+browser scripts run the entire workflow offline from `file://`.
 
 ## Intake Agent
 
@@ -160,9 +171,26 @@ an empty review queue.
 | Runtime was assumed | The brief states no duration, so a default was used |
 | Visual direction undefined | No style was stated, so prompts fell back to neutral |
 | Intake questions still open | Intake raised questions nobody answered |
+| Forbidden element appears in the production output | The brief forbids something a shot description or a positive prompt actively asks for — the mirror of the check above, and the worse failure, because no negative prompt can save a shot that requests the thing itself |
+| Constraint contradicts the subject | The brief forbids the film's own subject. A contradiction in the brief, not a shot-list defect, so it is raised once for a human rather than once per shot |
+| Shot timings leave a gap / overlap | Consecutive shots do not meet at the seam |
+| Shot list does not fill the runtime | The shots stop short of the planned duration |
+| Asset group is not used by any shot | The manifest lists something no shot calls for, so it would be sourced for nothing |
+| Asset points at a shot that does not exist | The manifest is out of date with the shot list |
 
 Findings that can be fixed mechanically carry an `enforce` flag; requesting a revision
 replays it through the agents. The rest are reported for a human to judge.
+
+The checks live in [critic-checks.js](critic-checks.js) as a `CHECKS` array and run in
+array order, which is the order the review queue reads in. Adding one costs an entry.
+
+Two of these deserve a note, because they are the ones that catch defects the system
+can introduce in itself rather than defects in the brief. The timing checks are quiet
+on today's generated output — `allocate` produces contiguous whole seconds by
+construction — and exist for when a model writes the shot list, where a plausible gap
+is invisible to a schema check that only ever sees one shot at a time. The asset checks
+are not hypothetical at all: on a short runtime the beat template drops beats, and a
+3-second brief reports two asset groups bound to shots that no longer exist.
 
 Useful local endpoints:
 
@@ -195,6 +223,90 @@ unavailable. The fallback is announced in the audit trail along with the reason,
 so a broken API path shows up as a message rather than as silently different
 behavior.
 
+## Setup, Step by Step
+
+Node 20 or newer. Nothing else is required to see the whole workflow run.
+
+```bash
+git clone <this repository>
+cd agentic-cinema
+npm install          # one dependency: @google/genai
+npm start            # http://localhost:4173
+```
+
+That runs the keyless path — `/api/health` will report `"intake_provider": "local"`.
+Everything in this README works at that point except a real model call.
+
+**To run the Intake Agent on Gemini**, get a key from
+[Google AI Studio](https://aistudio.google.com/apikey) (free tier, no billing account
+required — create the key on a project with no billing attached and it cannot charge
+you). Then confirm which models that key can actually reach before using one:
+
+```bash
+GEMINI_API_KEY=... npm run models     # lists models supporting generateContent
+GEMINI_API_KEY=... npm start
+```
+
+Verify it took effect — this is the check that matters, because a key that is not
+picked up silently falls back to the keyless parser rather than failing:
+
+```bash
+curl localhost:4173/api/health        # "intake_provider" must say "gemini"
+```
+
+Override the model if the default has moved on: `GEMINI_MODEL=<id> npm start`.
+
+## Deploy to Cloud Run, Step by Step
+
+Requires a Google Cloud project **with billing enabled** — Cloud Run has a free tier
+but will not turn on without a billing account. This is separate from the Gemini key
+above, which needs no billing at all.
+
+```bash
+# 1. install and authenticate
+winget install Google.CloudSDK          # or the installer for your platform
+gcloud auth login                       # opens a browser
+gcloud config set project PROJECT_ID
+
+# 2. enable the services
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com \
+  secretmanager.googleapis.com
+
+# 3. store the key rather than passing it as plain config
+printf '%s' "$GEMINI_API_KEY" | gcloud secrets create gemini-api-key --data-file=-
+
+# 4. build in the cloud — Docker is NOT required locally
+gcloud builds submit --tag gcr.io/PROJECT_ID/studioflow-ai
+
+# 5. deploy
+gcloud run deploy studioflow-ai \
+  --image gcr.io/PROJECT_ID/studioflow-ai \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --max-instances=1 \
+  --set-secrets GEMINI_API_KEY=gemini-api-key:latest
+```
+
+Two flags deserve an explanation rather than a copy-paste.
+
+`--max-instances=1` is **required for correctness today**, not for cost. The run store
+is an in-memory `Map` and the client polls: with several instances, `POST /run` lands
+on one and the next poll hits another, which returns 404. Firestore
+([TODO.md](TODO.md) item 4) is what removes this constraint.
+
+`--min-instances=1` would also be needed to survive scale-to-zero, since a cold start
+wipes every in-flight run — but **it bills for an always-allocated container**, so it
+is deliberately left out above. Set it only for the window in which you are recording
+the demo or being judged, and set it back to `0` afterwards:
+
+```bash
+gcloud run services update studioflow-ai --region us-central1 --min-instances=1
+gcloud run services update studioflow-ai --region us-central1 --min-instances=0
+```
+
+Set a budget alert before any of this. Note what it does and does not do: it emails
+you, it does not stop spending. The only hard stop is detaching the billing account.
+
 ## Repository Layout
 
 ```text
@@ -202,11 +314,12 @@ index.html                app shell and the four views
 styles.css                styling
 data.js                   labels and the default brief — no generated content
 intake-heuristics.js      keyless brief parser, output validation, formatting
-production-heuristics.js  shot list, assets, prompts, critic checks, packet
+critic-checks.js          the Critic's checks, one entry per constraint class
+production-heuristics.js  plan, shot list, assets, prompts, packet — no checks
 view-model.js             pure view helpers shared by the browser and the tests
 app-render.js             rendering only: reads state, writes into the DOM
 app.js                    state, API calls, orchestration, events
-server.js                 zero-dependency HTTP server: static files and JSON API
+server.js                 HTTP server: static files and JSON API
 lib/workflow.js           run lifecycle, task execution, review handling, store
 lib/queue.js              in-process job queue (the Pub/Sub seam)
 lib/llm.js                model provider seam: local, Gemini, Anthropic adapters
@@ -220,11 +333,16 @@ docs/                     plan, data model, agent contracts, deployment notes
 worker calls it to execute a run and a revision calls it again to rerun affected
 agents. Adding a second generation path is how the two silently drift apart.
 
-`data.js`, `intake-heuristics.js`, `production-heuristics.js`, and `view-model.js`
-are plain browser scripts loaded through `<script>` tags, and Node evaluates the same
-files in a sandbox to reuse them server-side and in tests. They must stay free of
-`require`, `module.exports`, `import`, and `export`. This is what lets the offline
-path run the same agents as the server rather than a second implementation of them.
+`data.js`, `intake-heuristics.js`, `critic-checks.js`, `production-heuristics.js`, and
+`view-model.js` are plain browser scripts loaded through `<script>` tags, and Node
+evaluates the same files in a sandbox to reuse them server-side and in tests. They must
+stay free of `require`, `module.exports`, `import`, and `export`. This is what lets the
+offline path run the same agents as the server rather than a second implementation of
+them.
+
+`critic-checks.js` and `production-heuristics.js` are loaded into **one shared sandbox**
+so the second can call `STUDIOFLOW_CRITIC` in the first, exactly the way two `<script>`
+tags share `window`.
 
 Adding a top-level source file means registering it in three places: the `check`
 script in `package.json`, the `COPY` list in the `Dockerfile`, and, for browser
@@ -245,10 +363,19 @@ npm run check
 npm test
 ```
 
-`npm run check` is a syntax pass over every source file. `npm test` is a single
-plain-`assert` script covering run creation, the revision loop and artifact
-versioning, run-store eviction, the script cache, HTML escaping, and API response
-normalization.
+`npm run check` is a syntax pass over every source file. `npm test` runs four
+plain-`assert` suites — no framework, no coverage tooling:
+
+| Suite | Covers |
+| --- | --- |
+| `tests/workflow.test.js` | run creation, the revision loop and artifact versioning, run-store eviction, the script cache, HTML escaping, API response normalization, and the three hardcoded file lists |
+| `tests/intake.test.js` | brief parsing, contract validation, degradation to the keyless parser |
+| `tests/production.test.js` | every generator, and each Critic check both firing and staying silent |
+| `tests/async.test.js` | the queue, observable task states, and the hosted adapters against a stub endpoint |
+
+Every suite drives the live path. To check a suite is really guarding something,
+break the code it covers on purpose and confirm it goes red — the Critic checks were
+verified that way, one deliberate breakage at a time.
 
 ## StudioFlow AI Summary
 
@@ -269,15 +396,17 @@ than a single-turn generator:
 
 Primary track: **Taskmaster**
 
-Technical posture:
+Technical posture, and where each part actually stands:
 
-- Gemini 3.5 or later
-- Google ADK or GenAI SDK
-- Cloud Run
-- Firestore
-- Pub/Sub or Cloud Tasks
-- Cloud Storage
-- Cloud Logging
+| | Status |
+| --- | --- |
+| Gemini 3.5 or later | `gemini-3.6-flash` is the default and the code path is live — but no real call has been made yet, so treat it as unproven until `/api/health` reports `gemini` |
+| Google ADK or GenAI SDK | **Done** — `@google/genai` is in the runtime path, in `lib/llm.js` |
+| Cloud Run | Not deployed. Dockerfile and the steps above are ready |
+| Firestore | Not wired up. The store interface was kept narrow for it |
+| Pub/Sub or Cloud Tasks | Not wired up. `lib/queue.js` is the seam |
+| Cloud Storage | Not used |
+| Cloud Logging | `trace_id` is on every task, artifact and audit event, so the correlation works with no code change once deployed |
 
 The project should be judged as a workflow execution system: the agent takes
 responsibility for moving creative production forward, while keeping humans in
@@ -285,9 +414,10 @@ control at important review points.
 
 ## Near-Term Backend Path
 
-The current server is intentionally zero-dependency Node.js so the prototype can
-run anywhere. The Cloud Run version should preserve the same API shape while
-swapping local seed data for Google Cloud services:
+The server has exactly one runtime dependency — `@google/genai`, used by the Gemini
+adapter — and nothing else, so the prototype still runs anywhere. The Cloud Run version
+should preserve the same API shape while swapping local seed data for Google Cloud
+services:
 
 - `/api/demo` reads project seed data from Firestore.
 - `/api/workflow/run` creates a workflow run, stores tasks, and dispatches jobs
