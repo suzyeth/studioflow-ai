@@ -1,0 +1,154 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 940" width="1280" height="940" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/>
+    </marker>
+    <marker id="arrowPlanned" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#d29922"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b949e"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="940" fill="#0d1117"/>
+
+  <text x="40" y="44" fill="#e6edf3" font-size="24" font-weight="600">StudioFlow AI — architecture as built</text>
+  <text x="40" y="70" fill="#8b949e" font-size="14">Solid = implemented and running today.  Dashed amber = planned, not built.  A brief becomes a production packet in which every stated constraint has been checked.</text>
+
+  <!-- ============================ BROWSER ============================ -->
+  <rect x="40" y="92" width="1200" height="186" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="58" y="118" fill="#58a6ff" font-size="13" font-weight="600" letter-spacing="1.4">BROWSER</text>
+
+  <rect x="58" y="130" width="196" height="54" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="72" y="152" fill="#e6edf3" font-size="14" font-weight="600">app.js</text>
+  <text x="72" y="171" fill="#8b949e" font-size="12">state · polling · events</text>
+
+  <rect x="266" y="130" width="196" height="54" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="280" y="152" fill="#e6edf3" font-size="14" font-weight="600">app-render.js</text>
+  <text x="280" y="171" fill="#8b949e" font-size="12">rendering only</text>
+
+  <rect x="474" y="130" width="196" height="54" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="488" y="152" fill="#e6edf3" font-size="14" font-weight="600">view-model.js</text>
+  <text x="488" y="171" fill="#8b949e" font-size="12">normalizeApiRun seam</text>
+
+  <rect x="682" y="130" width="540" height="54" rx="7" fill="#1a2119" stroke="#3f5a3a"/>
+  <text x="698" y="152" fill="#7ee787" font-size="13" font-weight="600">Offline path — no server required</text>
+  <text x="698" y="171" fill="#8b949e" font-size="12">opened as file://, the same scripts run the whole workflow in the browser</text>
+
+  <rect x="58" y="198" width="1164" height="62" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="74" y="220" fill="#e6edf3" font-size="13" font-weight="600">Dual-runtime scripts — one file, both runtimes</text>
+  <text x="74" y="241" fill="#8b949e" font-size="12">data.js · intake-heuristics.js · critic-checks.js · production-heuristics.js   —   loaded by &lt;script&gt; here, and read as text into one shared vm context on the server</text>
+
+  <line x1="640" y1="278" x2="640" y2="322" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="654" y="305" fill="#8b949e" font-size="12">fetch  /api/workflow/*   ·   client polls GET /api/workflow/:traceId</text>
+
+  <!-- ============================ SERVER ============================ -->
+  <rect x="40" y="330" width="1200" height="356" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="58" y="356" fill="#58a6ff" font-size="13" font-weight="600" letter-spacing="1.4">CLOUD RUN  ·  node server.js</text>
+  <text x="330" y="356" fill="#8b949e" font-size="12">container built by Cloud Build from the Dockerfile; not yet deployed</text>
+
+  <rect x="58" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="72" y="392" fill="#e6edf3" font-size="14" font-weight="600">server.js</text>
+  <text x="72" y="411" fill="#8b949e" font-size="12">HTTP transport, routes only</text>
+
+  <rect x="342" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="356" y="392" fill="#e6edf3" font-size="14" font-weight="600">lib/workflow.js</text>
+  <text x="356" y="411" fill="#8b949e" font-size="12">pure state transitions</text>
+
+  <rect x="626" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="640" y="392" fill="#e6edf3" font-size="14" font-weight="600">createRunStore</text>
+  <text x="640" y="411" fill="#f0a35e" font-size="12">in-memory Map, LRU 50 — lost on restart</text>
+
+  <rect x="954" y="370" width="268" height="58" rx="7" fill="#1f1a10" stroke="#d29922" stroke-dasharray="6 4"/>
+  <text x="968" y="392" fill="#d29922" font-size="14" font-weight="600">Firestore</text>
+  <text x="968" y="411" fill="#8b949e" font-size="12">planned — TODO.md item 4</text>
+  <line x1="894" y1="399" x2="948" y2="399" stroke="#d29922" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowPlanned)"/>
+
+  <rect x="58" y="444" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="72" y="466" fill="#e6edf3" font-size="14" font-weight="600">lib/queue.js</text>
+  <text x="72" y="485" fill="#8b949e" font-size="12">in-process worker, one job at a time</text>
+
+  <rect x="342" y="444" width="268" height="58" rx="7" fill="#1f1a10" stroke="#d29922" stroke-dasharray="6 4"/>
+  <text x="356" y="466" fill="#d29922" font-size="14" font-weight="600">Pub/Sub</text>
+  <text x="356" y="485" fill="#8b949e" font-size="12">planned — not required by the MVP</text>
+  <line x1="326" y1="473" x2="336" y2="473" stroke="#d29922" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowPlanned)"/>
+
+  <rect x="626" y="444" width="596" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="640" y="466" fill="#e6edf3" font-size="13" font-weight="600">Every state change is written back before the next one starts</text>
+  <text x="640" y="485" fill="#8b949e" font-size="12">which is what lets a poller observe a task in `running` rather than a graph that completes instantly</text>
+
+  <!-- agent chain -->
+  <text x="58" y="536" fill="#58a6ff" font-size="13" font-weight="600" letter-spacing="1.2">lib/agents/pipeline.js  ·  TASK_SEQUENCE</text>
+
+  <rect x="58" y="550" width="176" height="52" rx="7" fill="#1b2740" stroke="#4c7bd1"/>
+  <text x="72" y="572" fill="#e6edf3" font-size="14" font-weight="600">Intake</text>
+  <text x="72" y="590" fill="#79c0ff" font-size="11">calls a model</text>
+
+  <rect x="252" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="266" y="572" fill="#e6edf3" font-size="14" font-weight="600">Planning</text>
+  <text x="266" y="590" fill="#8b949e" font-size="11">deterministic</text>
+
+  <rect x="446" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="460" y="572" fill="#e6edf3" font-size="14" font-weight="600">Shot</text>
+  <text x="460" y="590" fill="#8b949e" font-size="11">deterministic</text>
+
+  <rect x="640" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="654" y="572" fill="#e6edf3" font-size="14" font-weight="600">Asset</text>
+  <text x="654" y="590" fill="#8b949e" font-size="11">deterministic</text>
+
+  <rect x="834" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="848" y="572" fill="#e6edf3" font-size="14" font-weight="600">Prompt</text>
+  <text x="848" y="590" fill="#8b949e" font-size="11">deterministic</text>
+
+  <rect x="1028" y="550" width="194" height="52" rx="7" fill="#241b26" stroke="#a371f7"/>
+  <text x="1042" y="572" fill="#e6edf3" font-size="14" font-weight="600">Critic</text>
+  <text x="1042" y="590" fill="#d2a8ff" font-size="11">critic-checks.js · CHECKS</text>
+
+  <line x1="234" y1="576" x2="248" y2="576" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arrowMuted)"/>
+  <line x1="428" y1="576" x2="442" y2="576" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arrowMuted)"/>
+  <line x1="622" y1="576" x2="636" y2="576" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arrowMuted)"/>
+  <line x1="816" y1="576" x2="830" y2="576" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arrowMuted)"/>
+  <line x1="1010" y1="576" x2="1024" y2="576" stroke="#8b949e" stroke-width="1.6" marker-end="url(#arrowMuted)"/>
+
+  <rect x="58" y="616" width="1164" height="52" rx="7" fill="#231a1a" stroke="#6e4040"/>
+  <text x="74" y="638" fill="#ff9492" font-size="13" font-weight="600">Human review gate</text>
+  <text x="74" y="657" fill="#8b949e" font-size="12">Critic findings become review items. Approve closes one; Revise merges the finding's `enforce` object and reruns only the tasks it names — versioning the affected artifacts and appending an audit event each time.</text>
+
+  <!-- ============================ MODEL SEAM ============================ -->
+  <line x1="146" y1="686" x2="146" y2="726" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="40" y="734" width="380" height="122" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="58" y="760" fill="#58a6ff" font-size="13" font-weight="600" letter-spacing="1.2">lib/llm.js — provider seam</text>
+  <text x="58" y="784" fill="#7ee787" font-size="13">local</text>
+  <text x="118" y="784" fill="#8b949e" font-size="12">keyless parser — the floor, always available</text>
+  <text x="58" y="808" fill="#79c0ff" font-size="13">gemini</text>
+  <text x="118" y="808" fill="#8b949e" font-size="12">@google/genai SDK</text>
+  <text x="58" y="832" fill="#8b949e" font-size="13">anthropic</text>
+  <text x="118" y="832" fill="#8b949e" font-size="12">present, unused for this submission</text>
+
+  <line x1="420" y1="795" x2="474" y2="795" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="480" y="734" width="330" height="122" rx="10" fill="#141d2e" stroke="#4c7bd1"/>
+  <text x="498" y="760" fill="#79c0ff" font-size="13" font-weight="600" letter-spacing="1.2">GOOGLE GEMINI API</text>
+  <text x="498" y="786" fill="#e6edf3" font-size="15" font-weight="600">gemini-3.6-flash</text>
+  <text x="498" y="808" fill="#8b949e" font-size="12">via @google/genai — a Google agent</text>
+  <text x="498" y="826" fill="#8b949e" font-size="12">framework, as the rules require</text>
+  <text x="498" y="846" fill="#8b949e" font-size="12">structured JSON, temperature 0</text>
+
+  <rect x="826" y="734" width="414" height="122" rx="10" fill="#161b22" stroke="#30363d"/>
+  <text x="844" y="758" fill="#e6edf3" font-size="13" font-weight="600">Two rules govern anything that calls a model</text>
+  <text x="844" y="782" fill="#8b949e" font-size="12">A model failure never fails a run — it degrades to the</text>
+  <text x="844" y="800" fill="#8b949e" font-size="12">keyless parser and says so in the audit trail.</text>
+  <text x="844" y="824" fill="#8b949e" font-size="12">A misconfiguration fails loudly — a named provider with</text>
+  <text x="844" y="842" fill="#8b949e" font-size="12">no key refuses to start rather than quietly serving local.</text>
+
+  <!-- ============================ LEGEND ============================ -->
+  <rect x="40" y="874" width="1200" height="44" rx="8" fill="#11161d" stroke="#232a33"/>
+  <rect x="58" y="890" width="26" height="12" rx="3" fill="#1c2230" stroke="#3d4757"/>
+  <text x="94" y="900" fill="#8b949e" font-size="12">implemented</text>
+  <rect x="196" y="890" width="26" height="12" rx="3" fill="#1f1a10" stroke="#d29922" stroke-dasharray="4 3"/>
+  <text x="232" y="900" fill="#8b949e" font-size="12">planned, not built</text>
+  <text x="376" y="900" fill="#8b949e" font-size="12">·  Artifacts carry `generated_by` (local / gemini / derived) so provenance is visible rather than implied.</text>
+  <text x="376" y="900" fill="#8b949e" font-size="12"> </text>
+</svg>

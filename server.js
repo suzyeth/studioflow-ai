@@ -34,6 +34,9 @@ const MIME_TYPES = {
   ".json": "application/json; charset=utf-8",
   ".md": "text/markdown; charset=utf-8",
   ".txt": "text/plain; charset=utf-8",
+  // docs/architecture.svg is a submission deliverable; serving it from the
+  // deployed URL means the diagram in the demo video is the deployed one.
+  ".svg": "image/svg+xml; charset=utf-8",
 };
 
 function sendJson(res, statusCode, payload) {
