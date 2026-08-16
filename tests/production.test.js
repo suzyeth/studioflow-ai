@@ -184,6 +184,123 @@ assert.ok(
   "TikTok is already vertical, so there is no conflict",
 );
 
+// --- forbidden content that reached the output -------------------------------
+// The check above asks whether a prohibition reached the negative prompts. This
+// asks the opposite and worse question: is the forbidden thing being actively
+// requested in the positive output, where no negative prompt can save it?
+const leaked = findingIds(
+  "Goal: A 30-second film about a kettle.\nAudience: home cooks\nPlatform: YouTube\nStyle: warm\nConstraints: avoid texture",
+);
+assert.ok(
+  leaked.some((id) => id.startsWith("prohibited-in-output")),
+  '"avoid texture" is flagged because a shot description asks for texture',
+);
+assert.ok(
+  !leaked.some((id) => id.startsWith("uncovered-prohibition")),
+  "the negative prompt did encode it — the two prohibition checks are independent",
+);
+
+// Whole-word matching, because a high-severity finding cannot be raised on a
+// substring. "ton" must not match "tone".
+assert.ok(
+  !findingIds(
+    "Goal: A 30-second film about a kettle.\nAudience: home cooks\nPlatform: YouTube\nStyle: warm\nConstraints: avoid ton",
+  ).some((id) => id.startsWith("prohibited-in-output")),
+  '"ton" does not match "tone"',
+);
+
+// A prohibition aimed at the film's own subject is a contradiction in the brief,
+// not a shot-list defect — it needs a human, and flagging every shot would be noise.
+const contradiction = findingIds(
+  "Goal: A 30-second film about a kettle.\nAudience: home cooks\nPlatform: YouTube\nStyle: warm\nConstraints: no kettle",
+);
+assert.ok(
+  contradiction.some((id) => id.startsWith("prohibition-hits-subject")),
+  "a constraint that forbids the subject is reported as a contradiction",
+);
+assert.ok(
+  !contradiction.some((id) => id.startsWith("prohibited-in-output")),
+  "and it is not also reported once per shot",
+);
+
+// --- timeline integrity ------------------------------------------------------
+// The generator cannot produce these today; the check exists for the moment a
+// model writes the shot list, where a plausible-looking gap is invisible to a
+// schema check. validateShotList only ever looks at one shot at a time.
+const gapped = {
+  ...shotList,
+  shots: shotList.shots.map((shot, index) =>
+    index === 2 ? { ...shot, start_seconds: shot.start_seconds + 1 } : shot,
+  ),
+};
+assert.ok(
+  production.reviewShotList(gapped, brief, []).some((f) => f.id === "timeline-discontinuity"),
+  "a one-second hole between two shots is reported",
+);
+
+const truncated = { ...shotList, shots: shotList.shots.slice(0, -1) };
+const truncatedFindings = production.reviewShotList(truncated, brief, []);
+assert.ok(
+  truncatedFindings.some((f) => f.id === "runtime-mismatch"),
+  "shots that stop short of the planned runtime are reported",
+);
+assert.ok(
+  !truncatedFindings.some((f) => f.id === "timeline-discontinuity"),
+  "a short-but-contiguous list is not also reported as discontinuous",
+);
+assert.ok(
+  !production.reviewShotList(shotList, brief, []).some(
+    (f) => f.id === "timeline-discontinuity" || f.id === "runtime-mismatch",
+  ),
+  "generated timings raise neither",
+);
+
+// --- asset manifest against the shots ----------------------------------------
+// A rerun can drop beats (fitBeats does exactly that on short runtimes), leaving
+// an asset group bound to a beat that no longer has a shot. Someone would go and
+// cast it anyway.
+const tightBrief = { ...brief, duration_seconds: 3 };
+const tightShots = production.buildShotList(tightBrief);
+const tightManifest = production.buildAssetManifest(tightShots, tightBrief);
+assert.ok(
+  production
+    .reviewShotList(tightShots, tightBrief, [], null, tightManifest)
+    .some((f) => f.id.startsWith("orphan-asset")),
+  "an asset group no shot calls for is reported",
+);
+
+const dangling = {
+  ...manifest,
+  assets: manifest.assets.map((asset) =>
+    asset.id === "asset_subject" ? { ...asset, needed_for: ["shot_99"] } : asset,
+  ),
+};
+assert.ok(
+  production
+    .reviewShotList(shotList, brief, [], null, dangling)
+    .some((f) => f.id.startsWith("dangling-asset")),
+  "an asset pointing at a shot that does not exist is reported",
+);
+
+assert.ok(
+  !production
+    .reviewShotList(shotList, brief, [], null, manifest)
+    .some((f) => f.id.startsWith("orphan-asset") || f.id.startsWith("dangling-asset")),
+  "a manifest built from these shots raises neither",
+);
+
+// Every new finding still satisfies the contract the workflow enforces.
+for (const sample of [leaked, contradiction]) {
+  assert.ok(sample.length > 0);
+}
+assert.deepEqual(
+  production.validateFindings(
+    production.reviewShotList(tightShots, tightBrief, [], null, tightManifest),
+  ),
+  [],
+  "findings from the new checks carry a title and target tasks",
+);
+
 (async () => {
   // --- a full run through the live path --------------------------------------
   const store = createRunStore();

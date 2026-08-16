@@ -229,9 +229,24 @@ const STUDIOFLOW_PRODUCTION = {
       .filter((word) => word.length > 2 && !this.STOPWORDS.has(word));
   },
 
+  // Whole-word match. The prohibition checks below raise high-severity findings,
+  // so they cannot use substring matching: "ad" would hit "additional" and
+  // "cat" would hit "category". A wrong finding costs more than a missed one —
+  // the review queue is only worth anything if every item in it is real.
+  matchesWord(haystack, word) {
+    const escaped = String(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`\\b${escaped}\\b`, "i").test(String(haystack));
+  },
+
   // Real checks against the brief. The number of findings varies by brief, which
   // is the point: an empty list means the shot list actually satisfied it.
-  reviewShotList(shotList, structuredBrief, clarifyingQuestions = [], promptPack = null) {
+  reviewShotList(
+    shotList,
+    structuredBrief,
+    clarifyingQuestions = [],
+    promptPack = null,
+    manifest = null,
+  ) {
     const findings = [];
     const constraints = structuredBrief.constraints || [];
     const heroShot = shotList.shots.find((shot) => shot.is_hero);
@@ -329,6 +344,61 @@ const STUDIOFLOW_PRODUCTION = {
       }
     }
 
+    // The mirror of the check above, and the worse failure of the two. That one
+    // asks whether a prohibition reached the negative prompts; this one asks
+    // whether the thing is being actively asked for somewhere in the positive
+    // output. A negative prompt cannot save a shot whose own description
+    // requests the forbidden thing.
+    for (const constraint of constraints) {
+      const isProhibition =
+        this.PROHIBITION.test(constraint) || this.PROHIBITION_LOOSE.test(constraint);
+      if (!isProhibition) continue;
+
+      const keywords = this.keywordsFrom(constraint);
+      if (keywords.length === 0) continue;
+
+      // A prohibition whose subject is the film's own subject is a contradiction
+      // in the brief, not a shot-list defect. It gets its own finding below, and
+      // matching it here would flag every single shot.
+      const subjectWords = keywords.filter((word) => this.matchesWord(shotList.subject, word));
+      const testable = keywords.filter((word) => !subjectWords.includes(word));
+
+      if (subjectWords.length > 0) {
+        findings.push({
+          id: `prohibition-hits-subject-${subjectWords[0]}`,
+          title: "Constraint contradicts the subject",
+          severity: "high",
+          target_task_ids: ["intake", "shots"],
+          body: `The brief states "${constraint}", but the film's subject is "${shotList.subject}". A human has to resolve which one wins before production.`,
+        });
+        continue;
+      }
+
+      if (testable.length === 0) continue;
+
+      const offenders = [];
+      for (const shot of shotList.shots) {
+        const hit = testable.find((word) => this.matchesWord(shot.description, word));
+        if (hit) offenders.push({ where: shot.timecode, word: hit });
+      }
+      for (const prompt of promptPack ? promptPack.prompts : []) {
+        const hit = testable.find((word) => this.matchesWord(prompt.prompt, word));
+        if (hit && !offenders.some((entry) => entry.where === prompt.timecode)) {
+          offenders.push({ where: prompt.timecode, word: hit });
+        }
+      }
+
+      if (offenders.length > 0) {
+        findings.push({
+          id: `prohibited-in-output-${offenders[0].word}`,
+          title: "Forbidden element appears in the production output",
+          severity: "high",
+          target_task_ids: ["shots", "prompts"],
+          body: `The brief states "${constraint}", but "${offenders[0].word}" is written into ${offenders.length} generated item(s), starting at ${offenders[0].where}.`,
+        });
+      }
+    }
+
     // Something the brief requires that no shot actually depicts.
     for (const constraint of constraints) {
       if (!this.REQUIREMENT.test(constraint)) continue;
@@ -390,6 +460,77 @@ const STUDIOFLOW_PRODUCTION = {
       });
     }
 
+    // Timeline integrity. `allocate` guarantees contiguous whole seconds today,
+    // so this stays quiet on generated output — it exists for the moment a model
+    // writes the shot list (TODO.md item 5), where a gap, an overlap, or a
+    // runtime that misses the target is exactly the kind of plausible-looking
+    // error a schema check cannot see. validateShotList only checks each shot in
+    // isolation; nothing else looks at the seams between them.
+    const ordered = [...shotList.shots].sort((a, b) => a.sequence - b.sequence);
+    let expectedStart = 0;
+    for (const shot of ordered) {
+      if (shot.start_seconds !== expectedStart) {
+        const kind = shot.start_seconds > expectedStart ? "gap" : "overlap";
+        findings.push({
+          id: "timeline-discontinuity",
+          title: `Shot timings leave a ${kind}`,
+          severity: "high",
+          target_task_ids: ["shots"],
+          body: `${shot.id} starts at ${shot.start_seconds}s but the previous shot ends at ${expectedStart}s, leaving a ${Math.abs(shot.start_seconds - expectedStart)}s ${kind}.`,
+        });
+        break;
+      }
+      expectedStart = shot.end_seconds;
+    }
+
+    if (
+      findings.every((finding) => finding.id !== "timeline-discontinuity") &&
+      expectedStart !== shotList.duration_seconds
+    ) {
+      findings.push({
+        id: "runtime-mismatch",
+        title: "Shot list does not fill the runtime",
+        severity: "high",
+        target_task_ids: ["shots"],
+        body: `The shots total ${expectedStart}s against a planned runtime of ${shotList.duration_seconds}s.`,
+      });
+    }
+
+    // An asset group nobody shoots. This is a real defect the revision loop can
+    // introduce rather than a hypothetical: buildAssetManifest binds groups to
+    // beats, and a rerun with enforce.heroFirst reorders beats while fitBeats can
+    // drop them entirely on short runtimes — leaving, say, a talent group with no
+    // shot to appear in. Someone would go and cast it anyway.
+    if (manifest) {
+      const shotIds = new Set(shotList.shots.map((shot) => shot.id));
+
+      for (const asset of manifest.assets || []) {
+        const neededFor = asset.needed_for || [];
+
+        if (neededFor.length === 0) {
+          findings.push({
+            id: `orphan-asset-${asset.id}`,
+            title: "Asset group is not used by any shot",
+            severity: "medium",
+            target_task_ids: ["assets"],
+            body: `"${asset.name}" (${asset.category}) is in the manifest but no shot calls for it, so it would be sourced for nothing.`,
+          });
+          continue;
+        }
+
+        const dangling = neededFor.filter((shotId) => !shotIds.has(shotId));
+        if (dangling.length > 0) {
+          findings.push({
+            id: `dangling-asset-${asset.id}`,
+            title: "Asset points at a shot that does not exist",
+            severity: "high",
+            target_task_ids: ["assets"],
+            body: `"${asset.name}" lists ${dangling.join(", ")}, which the shot list does not contain — the manifest is out of date with the shots.`,
+          });
+        }
+      }
+    }
+
     return findings;
   },
 
@@ -440,6 +581,7 @@ const STUDIOFLOW_PRODUCTION = {
       structuredBrief,
       clarifyingQuestions,
       promptPack,
+      manifest,
     );
 
     return {
