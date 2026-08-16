@@ -189,14 +189,25 @@ async function handleApi(req, res, pathname) {
         return;
       }
 
-      const updatedRun = runStore.update(reviewMatch[1], (run) =>
-        closeReviewItem(run, reviewMatch[2], action, { production }),
-      );
-
-      if (!updatedRun) {
+      const existing = runStore.get(reviewMatch[1]);
+      if (!existing) {
         sendJson(res, 404, { error: "Workflow run not found" });
         return;
       }
+
+      // closeReviewItem is async, because a revision reruns the production
+      // agents. runStore.update is deliberately synchronous and clones what the
+      // updater returns, so handing it this call produced a promise it could not
+      // clone — a 400 that silently broke the entire revision loop over HTTP
+      // while every test, which calls closeReviewItem directly, stayed green.
+      // The await has to happen here, before the result reaches the store.
+      const updatedRun = runStore.save(
+        await closeReviewItem(existing, reviewMatch[2], action, {
+          provider,
+          intakeHeuristics,
+          production,
+        }),
+      );
 
       sendJson(res, 200, updatedRun);
     } catch (error) {
