@@ -1,0 +1,23 @@
+FROM node:24-slim
+
+WORKDIR /app
+
+COPY package.json ./
+COPY server.js ./
+COPY data.js ./
+COPY intake-heuristics.js ./
+COPY production-heuristics.js ./
+COPY view-model.js ./
+COPY app-render.js ./
+COPY app.js ./
+COPY styles.css ./
+COPY index.html ./
+COPY lib ./lib
+COPY docs ./docs
+
+ENV NODE_ENV=production
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["node", "server.js"]

@@ -1,0 +1,18 @@
+# Local Claude Code permissions — machine-specific, not shared
+.claude/settings.local.json
+
+# Secrets. Never commit a key.
+.env
+.env.*
+*.key
+
+# Node (this project has zero runtime deps, but keep the guard)
+node_modules/
+
+# macOS metadata files — the drive is exFAT and shared with a Mac
+._*
+.DS_Store
+
+# Logs and scratch
+*.log
+_wtest.txt

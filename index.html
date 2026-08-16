@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>StudioFlow AI</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark">SF</span>
+        <div>
+          <strong>StudioFlow AI</strong>
+          <span>Agentic production ops</span>
+        </div>
+      </div>
+
+      <nav class="nav-list" aria-label="Primary">
+        <button class="nav-item active" data-view="workspace">Workspace</button>
+        <button class="nav-item" data-view="review">Review Queue</button>
+        <button class="nav-item" data-view="packet">Production Packet</button>
+        <button class="nav-item" data-view="proof">Cloud Proof</button>
+      </nav>
+
+      <section class="sidebar-section">
+        <span class="section-label">Run Status</span>
+        <div class="status-pill" id="runStatus">Ready</div>
+      </section>
+
+      <section class="sidebar-section">
+        <span class="section-label">Track</span>
+        <p>Taskmaster with enterprise workflow architecture.</p>
+      </section>
+    </aside>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">All Things Agentic Hackathon MVP</p>
+          <h1>Creative brief to audited production packet</h1>
+        </div>
+        <div class="topbar-actions">
+          <button class="ghost-button" id="resetBtn">Reset</button>
+          <button class="primary-button" id="runBtn">Run Workflow</button>
+        </div>
+      </header>
+
+      <section class="view active" id="workspace">
+        <div class="workspace-grid">
+          <section class="panel brief-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Project Brief</p>
+                <h2 id="projectTitle">Tokyo Night Market Coffee</h2>
+              </div>
+              <span class="small-tag">Draft</span>
+            </div>
+            <textarea id="briefInput" spellcheck="true"></textarea>
+            <div class="brief-fields" id="briefFields"></div>
+            <div class="clarifications" id="clarifications"></div>
+          </section>
+
+          <section class="panel workflow-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Agent Workflow</p>
+                <h2>Task Graph</h2>
+              </div>
+              <span class="small-tag" id="completedCount">0/6 complete</span>
+            </div>
+            <ol class="task-list" id="taskList"></ol>
+          </section>
+
+          <section class="panel artifact-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Artifacts</p>
+                <h2>Generated Work</h2>
+              </div>
+              <span class="small-tag">Versioned</span>
+            </div>
+            <div class="artifact-list" id="artifactList"></div>
+          </section>
+
+          <section class="panel audit-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="eyebrow">Audit Trail</p>
+                <h2>Agent Events</h2>
+              </div>
+              <span class="small-tag">Live</span>
+            </div>
+            <div class="audit-log" id="auditLog"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="review">
+        <section class="panel review-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Human-in-the-Loop</p>
+              <h2>Review Queue</h2>
+            </div>
+            <span class="small-tag" id="reviewCount">0 open</span>
+          </div>
+          <div id="reviewQueue" class="review-list"></div>
+        </section>
+      </section>
+
+      <section class="view" id="packet">
+        <section class="panel packet-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Deliverable</p>
+              <h2>Production Packet</h2>
+            </div>
+            <button class="ghost-button" id="copyPacketBtn">Copy Markdown</button>
+          </div>
+          <pre id="packetOutput" class="packet-output">Run the workflow to generate a production packet.</pre>
+        </section>
+      </section>
+
+      <section class="view" id="proof">
+        <section class="panel proof-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Deployment Evidence</p>
+              <h2>Google Cloud Architecture</h2>
+            </div>
+            <span class="small-tag" id="proofSource">No run yet</span>
+          </div>
+          <div class="proof-grid" id="proofRuntime"></div>
+
+          <div class="panel-heading proof-subheading">
+            <div>
+              <p class="eyebrow">Not Yet Wired</p>
+              <h2>Target Google Cloud Services</h2>
+            </div>
+          </div>
+          <div class="proof-grid proof-grid-muted">
+            <div class="proof-item">
+              <strong>Cloud Run</strong>
+              <span>Would host this API. Dockerfile is present but undeployed.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Pub/Sub or Cloud Tasks</strong>
+              <span>Would replace the in-process queue in lib/queue.js.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Firestore</strong>
+              <span>Would replace the in-memory run store. Nothing persists today.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Cloud Storage</strong>
+              <span>Would hold packets and generated files.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Cloud Logging</strong>
+              <span>Would receive the trace ids this run already emits.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Gemini via ADK</strong>
+              <span>Adapter exists in lib/llm.js, unverified without an API key.</span>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="data.js"></script>
+    <script src="intake-heuristics.js"></script>
+    <script src="production-heuristics.js"></script>
+    <script src="view-model.js"></script>
+    <script src="app-render.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
