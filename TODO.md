@@ -28,8 +28,9 @@ the keyless parser — that is the designed fallback, not a crash.
 (`tests/async.test.js` covers request shape, response parsing, fenced JSON, HTTP
 errors, timeouts). Authentication and real model behaviour are unverified.
 
-Most likely failure: the default model id `gemini-2.5-flash` no longer exists.
-Override without touching code:
+The default is `gemini-3.6-flash` (bumped 2026-08-14 in `lib/llm.js`; GA since
+2026-07-21, satisfies the hackathon's "Gemini 3.5 or newer" rule). If it has
+moved on again, override without touching code:
 
 ```bash
 GEMINI_API_KEY=... GEMINI_MODEL=<current-model-id> npm start
