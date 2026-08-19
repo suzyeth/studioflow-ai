@@ -17,8 +17,8 @@ model latency that would otherwise be dead air. Read it aloud with a timer befor
 recording. If you are over, cut the second half of the Critic section (the "twelve
 checks" lines) — never the clarification loop or the revision, which are the track.
 
-**Two eight-second waits, both narrated.** Intake is the only step that calls a model,
-it takes ~8s against `gemini-3.6-flash`, and it runs twice: once on the first pass and
+**Two ten-second waits, both narrated.** Intake is the only step that calls a model,
+it takes ~10s against `gemini-3.6-flash`, and it runs twice: once on the first pass and
 once when the clarifying answer reruns the workflow. Everything else finishes in
 milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
 
@@ -112,9 +112,9 @@ words): `Young urban professionals`
 > I paste the brief and start the run. The API returns immediately with every task
 > queued — the work happens in the background, and the client polls.
 
-⚠️ **Intake takes about eight seconds against a real model** (measured: 7.7s on
-`gemini-3.6-flash`), against under three for the whole graph on the keyless path. Do
-not wait it out in silence — eight seconds of dead air is a long time on camera, and
+⚠️ **Intake takes about ten seconds against a real model** (measured: 7.7s, 10.0s, 9.5s on
+`gemini-3.6-flash` across three runs), against under three for the whole graph on the keyless path. Do
+not wait it out in silence — ten seconds of dead air is a very long time on camera, and
 there is no cut available to hide it. **Talk through it.** The lines below are written
 to fill exactly that gap, so deliver them while Intake is spinning:
 
@@ -142,7 +142,7 @@ talking — they finish in milliseconds, and that contrast is worth seeing.
 
 **Answer the question: `Young urban professionals`. Submit.**
 
-⚠️ **This is the second eight-second wait.** Answering reruns the whole workflow, which
+⚠️ **This is the second ten-second wait.** Answering reruns the whole workflow, which
 means Intake calls the model again. The lines below are sized to cover it — start
 speaking as soon as you submit, not after.
 
@@ -221,7 +221,7 @@ You cannot cut, so decide these now rather than freezing on camera.
 
 | What happens | What you do |
 | --- | --- |
-| The run hangs past ~20 seconds | Intake against a real model is ~8s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
+| The run hangs past ~25 seconds | Intake against a real model is ~10s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
 | `/api/health` says `local` | **Stop. Do not record.** The central claim is not demonstrable. Fix the secret binding first. |
 | The first run shows no clarifying question | You pasted a brief that has the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
 | The first run shows more than one question | Same cause, different direction: the brief lost more than the audience line. |

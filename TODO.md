@@ -4,29 +4,48 @@ Everything here is blocked on something the codebase cannot do for itself: an AP
 key, a cloud account, or software that is not installed. Written to be picked up
 cold on another machine.
 
-Current blocker summary: **no Gemini key, no `gcloud`, no `docker`** on the machine
-this was built on (Windows 11, winget available).
+Current blocker summary: **no Cloud Run deployment.** The Gemini key is in hand and
+the first real calls have been made (item 1 below is done); `gcloud` is installed.
+Docker is not needed — see item 2.
 
 ---
 
-## 1. Gemini API key — makes the "uses Gemini" claim true
+## 1. ~~Gemini API key~~ — DONE 2026-08-19
 
 Free tier, no billing account required. Separate from Google Cloud below.
 
-- [ ] Get a key from Google AI Studio
-- [ ] Run with it: `GEMINI_API_KEY=... npm start`
-- [ ] Confirm it took effect: `curl localhost:4173/api/health` → `intake_provider`
-      must say `gemini`, not `local`
-- [ ] Run a workflow and confirm the structured brief still looks sane
+- [x] Key obtained from Google AI Studio (free tier, no billing account)
+- [x] `gemini-3.6-flash` confirmed present on the key — `npm run models` lists 37
+      models that support `generateContent`
+- [x] Real call succeeds, validates against the contract, and becomes the artifact —
+      `npm run smoke` runs the Intake Agent on Gemini and again forced local, side by
+      side, because degradation is silent by design
 
-**Nothing in the code changes.** The provider is selected from the environment.
-If health still says `local`, the key was not picked up and the run silently used
-the keyless parser — that is the designed fallback, not a crash.
+**The first real calls found two bugs the stub tests could not.** Both are fixed:
 
-**Expect the first real call to fail.** The Gemini and Anthropic adapters in
-`lib/llm.js` have only ever been exercised against a local stub server
-(`tests/async.test.js` covers request shape, response parsing, fenced JSON, HTTP
-errors, timeouts). Authentication and real model behaviour are unverified.
+1. **Gemini invented an audience.** Given a brief about a brand *entering the Tokyo
+   night market*, it filled `audience` with "Consumers in the Tokyo night market" —
+   a market read as an audience. The keyless parser correctly said "Not stated in
+   the brief" and asked. This is exactly the failure the product claims to prevent,
+   so the prompt now separates EXTRACT from INFER in the system message and names
+   this specific trap in the rules.
+2. **Model questions had no `fills` field.** It is not in the old output schema, but
+   `server.js` needs it to fold an answer back as `"<label>: <answer>"`. Without it
+   the clarification loop silently breaks with a real model. `fills` is now in the
+   schema as a closed enum.
+
+Also normalised trailing punctuation on model-filled string fields, which the
+keyless parser strips and a model does not — it rendered as `"…night market.. "` in
+the summary line the UI shows.
+
+**Note the latency.** Intake takes ~10s against `gemini-3.6-flash` (7.7 / 10.0 / 9.5
+across three runs) versus under 3s for the entire graph keyless, and it runs twice in
+the demo because answering a clarifying question reruns the workflow. `docs/DEMO_SCRIPT.md`
+budgets both gaps as narration.
+
+The provider is still selected from the environment. If health says `local`, the key
+was not picked up and the run silently used the keyless parser — that is the designed
+fallback, not a crash. `npm run smoke` is the way to tell the difference.
 
 The default is `gemini-3.6-flash` (bumped 2026-08-14 in `lib/llm.js`; GA since
 2026-07-21, satisfies the hackathon's "Gemini 3.5 or newer" rule). If it has
@@ -47,7 +66,7 @@ Needs a Google Cloud project **with billing enabled**. Cloud Run has a free tier
 but will not turn on without a billing account. This is separate from the Gemini
 key above.
 
-- [ ] `winget install Google.CloudSDK`
+- [x] `winget install Google.CloudSDK` — installed 2026-08-19, Cloud SDK 580.0.0
 - [ ] `gcloud auth login` (opens a browser — must be done by a human)
 - [ ] Create/select a GCP project, enable billing
 - [ ] `gcloud config set project PROJECT_ID`

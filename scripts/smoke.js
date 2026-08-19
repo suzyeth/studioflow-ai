@@ -40,6 +40,10 @@ function show(label, result) {
   console.log(`  constraints:`);
   for (const c of brief.constraints || []) console.log(`     - ${c}`);
   console.log(`  questions  : ${(result.clarifying_questions || []).length}`);
+  for (const q of result.clarifying_questions || []) {
+    console.log(`     - fills=${JSON.stringify(q.fills)}  id=${q.id}`);
+    console.log(`       ${q.question}`);
+  }
   console.log(`  summary    : ${result.summary}`);
 
   const built = production.buildAll(brief, result.clarifying_questions || []);
