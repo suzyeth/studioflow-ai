@@ -11,10 +11,16 @@ step that hangs, so every step below is either instant or has a stated fallback.
 
 Target **3:40**, hard ceiling 4:00. The margin is for speaking slower than you plan to.
 
-Narration is ~520 words. At a deliberate 135 wpm that is 3:51 — tight, so **read it
-aloud with a timer before recording** and trim your own asides rather than the script.
-If you must cut live, cut the second half of the Critic section (the "twelve checks"
-lines). Never cut the clarification loop or the revision: those two are the track.
+Narration is ~560 words. At a deliberate 135 wpm that is 4:09 — **over the ceiling on
+paper**, and the only reason it fits is that two of those stretches are spoken over
+model latency that would otherwise be dead air. Read it aloud with a timer before
+recording. If you are over, cut the second half of the Critic section (the "twelve
+checks" lines) — never the clarification loop or the revision, which are the track.
+
+**Two eight-second waits, both narrated.** Intake is the only step that calls a model,
+it takes ~8s against `gemini-3.6-flash`, and it runs twice: once on the first pass and
+once when the clarifying answer reruns the workflow. Everything else finishes in
+milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
 
 ---
 
@@ -26,7 +32,8 @@ lines). Never cut the clarification loop or the revision: those two are the trac
       — a cold start mid-demo is the most likely way this take dies. **Set it back to
       `0` after recording.**
 - [ ] Load the deployed URL once and run one full workflow, to warm the container and
-      confirm the build actually works. Then reload for a clean state.
+      confirm the build actually works. Then reload for a clean state. **This also warms
+      the model path** — the first call of the day is the slowest one.
 - [ ] `curl <URL>/api/health` — confirm `"intake_provider": "gemini"`. If it says
       `local`, the key is not reaching the container and the "powered by Gemini" claim
       is not demonstrable. Fix before recording.
@@ -103,14 +110,25 @@ words): `Young urban professionals`
 **Screen:** back to tab 1. Paste. Click **Run Workflow**.
 
 > I paste the brief and start the run. The API returns immediately with every task
-> queued — the work happens in the background, and the client polls. Watch the task
-> graph: Intake, Planning, Shot, Asset, Prompt, Critic, one at a time.
+> queued — the work happens in the background, and the client polls.
 
-**Say nothing for the ~3 seconds the graph is advancing. Let it be watched.**
+⚠️ **Intake takes about eight seconds against a real model** (measured: 7.7s on
+`gemini-3.6-flash`), against under three for the whole graph on the keyless path. Do
+not wait it out in silence — eight seconds of dead air is a long time on camera, and
+there is no cut available to hide it. **Talk through it.** The lines below are written
+to fill exactly that gap, so deliver them while Intake is spinning:
 
-> Only Intake calls a model — it turns the prose into a structured brief. The four
-> production agents are deterministic, which is deliberate: I would rather the checking
-> be trustworthy than the prose be pretty.
+> Intake is the only step that calls a model, and it is working now — turning a
+> paragraph of prose into a structured brief with typed fields, validated against a
+> schema before it is allowed to become an artifact.
+>
+> The four production agents behind it are deterministic generators, and that is a
+> deliberate choice rather than a shortcut. I would rather the checking be trustworthy
+> than the prose be pretty — and it is why I can tell you exactly what the model did
+> and did not decide.
+
+**By now the graph should be moving.** Let the last few tasks land while you stop
+talking — they finish in milliseconds, and that contrast is worth seeing.
 
 ### 1:15–1:50 · It asks. You answer. It adapts. *(the track's thesis — never cut this)*
 
@@ -124,9 +142,14 @@ words): `Young urban professionals`
 
 **Answer the question: `Young urban professionals`. Submit.**
 
+⚠️ **This is the second eight-second wait.** Answering reruns the whole workflow, which
+means Intake calls the model again. The lines below are sized to cover it — start
+speaking as soon as you submit, not after.
+
 > I answer, and the answer is folded back into the brief as a labelled line, so intake
 > reads it exactly the way it read the original prose. The whole workflow reruns,
-> because everything downstream of intake depends on it.
+> because everything downstream of intake depends on it — you cannot plan shots for an
+> audience you learned about after the shots were planned.
 
 **Screen:** the queue is now two findings.
 
@@ -198,7 +221,7 @@ You cannot cut, so decide these now rather than freezing on camera.
 
 | What happens | What you do |
 | --- | --- |
-| The run hangs past ~10 seconds | Say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
+| The run hangs past ~20 seconds | Intake against a real model is ~8s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
 | `/api/health` says `local` | **Stop. Do not record.** The central claim is not demonstrable. Fix the secret binding first. |
 | The first run shows no clarifying question | You pasted a brief that has the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
 | The first run shows more than one question | Same cause, different direction: the brief lost more than the audience line. |
