@@ -30,6 +30,12 @@ const STUDIOFLOW_CRITIC = {
 
   REQUIREMENT: /\b(must include|include|show|feature|keep|ensure)\b/i,
 
+  // A requirement quantified over every shot, and the words the quantifier
+  // phrase itself contributes — matching those against a description would
+  // satisfy the constraint with its own phrasing.
+  QUANTIFIER: /\b(?:every|all|each)\s+(?:shot|scene|frame)s?\b/i,
+  QUANTIFIER_WORDS: new Set(["every", "each", "all", "scene", "scenes", "frame", "frames"]),
+
   // Words that carry no visual meaning on their own, so requiring the shot list to
   // "mention" them would produce noise rather than a finding.
   STOPWORDS: new Set([
@@ -121,6 +127,29 @@ const STUDIOFLOW_CRITIC = {
             severity: "medium",
             target_task_ids: ["shots"],
             body: `The brief states no duration, so the shot list assumes ${shotList.duration_seconds}s. Confirm before production.`,
+          },
+        ];
+      },
+    },
+
+    {
+      id: "stated-duration-mismatch",
+      // The mirror of assumed-duration: the brief DID state a runtime and the
+      // shot list planned a different one. buildShotList cannot produce this
+      // today — it reads the duration straight off the brief — so like the
+      // timeline check this exists for the moment a model writes the shot list,
+      // where "a 30s brief, a 25s plan" is exactly the plausible-looking error a
+      // per-shot schema check cannot see.
+      run({ shotList, structuredBrief }) {
+        if (!structuredBrief.duration_seconds) return [];
+        if (shotList.duration_seconds === structuredBrief.duration_seconds) return [];
+        return [
+          {
+            id: "stated-duration-mismatch",
+            title: "Planned runtime contradicts the brief",
+            severity: "high",
+            target_task_ids: ["shots", "prompts"],
+            body: `The brief states ${structuredBrief.duration_seconds}s, but the shot list was planned for ${shotList.duration_seconds}s.`,
           },
         ];
       },
@@ -305,6 +334,44 @@ const STUDIOFLOW_CRITIC = {
     },
 
     {
+      id: "every-shot",
+      // A requirement quantified over every shot — "keep the logo visible in
+      // every shot" — met by some shots and not others. Partial coverage is the
+      // one case unmet-requirement cannot see: it goes quiet as soon as ANY shot
+      // depicts the element. Total absence is deliberately left to it, so the
+      // two checks never fire on the same constraint.
+      run({ shotList, constraints }) {
+        const findings = [];
+
+        for (const constraint of constraints) {
+          if (!STUDIOFLOW_CRITIC.QUANTIFIER.test(constraint)) continue;
+
+          const keywords = STUDIOFLOW_CRITIC.keywordsFrom(constraint).filter(
+            (word) => !STUDIOFLOW_CRITIC.QUANTIFIER_WORDS.has(word),
+          );
+          if (keywords.length === 0) continue;
+
+          const missing = shotList.shots.filter(
+            (shot) =>
+              !keywords.some((word) => STUDIOFLOW_CRITIC.matchesWord(shot.description, word)),
+          );
+
+          // All missing → unmet-requirement's finding; none missing → satisfied.
+          if (missing.length === 0 || missing.length === shotList.shots.length) continue;
+
+          findings.push({
+            id: `every-shot-${keywords[0]}`,
+            title: "Required in every shot, missing from some",
+            severity: "medium",
+            target_task_ids: ["shots", "prompts"],
+            body: `The brief requires "${constraint}", but ${missing.length} of ${shotList.shots.length} shot(s) do not include it, starting at ${missing[0].timecode}.`,
+          });
+        }
+        return findings;
+      },
+    },
+
+    {
       id: "pacing",
       // Both directions are real production problems.
       run({ shotList }) {
@@ -442,6 +509,56 @@ const STUDIOFLOW_CRITIC = {
               severity: "high",
               target_task_ids: ["assets"],
               body: `"${asset.name}" lists ${dangling.join(", ")}, which the shot list does not contain — the manifest is out of date with the shots.`,
+            });
+          }
+        }
+        return findings;
+      },
+    },
+
+    {
+      id: "prompt-coverage",
+      // The prompt pack's seams against the shot list, the way asset-coverage
+      // walks the manifest's. A shot with no prompt reaches the generator with
+      // no instructions at all; a prompt whose shot no longer exists is stale
+      // direction someone would render anyway. buildPromptPack derives one
+      // prompt per shot today, so this stays quiet on generated output — it
+      // exists for a model-written pack and for reruns that regenerate one
+      // artifact but not the other.
+      run({ shotList, promptPack }) {
+        if (!promptPack) return [];
+
+        const prompts = promptPack.prompts || [];
+        const promptShotIds = new Set(
+          prompts.map((prompt) => prompt.shot_id).filter(Boolean),
+        );
+        // A pack that carries no shot ids at all cannot be judged against the
+        // shot list — silence beats flagging every shot on a format difference.
+        if (promptShotIds.size === 0) return [];
+
+        const findings = [];
+        const shotIds = new Set(shotList.shots.map((shot) => shot.id));
+
+        for (const shot of shotList.shots) {
+          if (!promptShotIds.has(shot.id)) {
+            findings.push({
+              id: `missing-prompt-${shot.id}`,
+              title: "Shot has no prompt",
+              severity: "high",
+              target_task_ids: ["prompts"],
+              body: `${shot.id} (${shot.timecode}) has no entry in the prompt pack, so nothing tells a generator what to produce for it.`,
+            });
+          }
+        }
+
+        for (const prompt of prompts) {
+          if (prompt.shot_id && !shotIds.has(prompt.shot_id)) {
+            findings.push({
+              id: `stale-prompt-${prompt.shot_id}`,
+              title: "Prompt points at a shot that does not exist",
+              severity: "medium",
+              target_task_ids: ["prompts"],
+              body: `A prompt targets ${prompt.shot_id}, which the shot list does not contain — the pack is out of date with the shots.`,
             });
           }
         }

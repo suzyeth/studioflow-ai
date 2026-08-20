@@ -289,10 +289,123 @@ assert.ok(
   "a manifest built from these shots raises neither",
 );
 
+// --- a stated runtime the shot list contradicts ------------------------------
+// buildShotList reads the duration off the brief, so only a hand-built (or,
+// later, model-built) list can disagree with it.
+const wrongLength = { ...shotList, duration_seconds: 45 };
+assert.ok(
+  production
+    .reviewShotList(wrongLength, brief, [])
+    .some((f) => f.id === "stated-duration-mismatch"),
+  "a 30s brief planned as 45s is reported",
+);
+assert.ok(
+  !production.reviewShotList(shotList, brief, []).some((f) => f.id === "stated-duration-mismatch"),
+  "the generated list matches the stated runtime",
+);
+assert.ok(
+  !production
+    .reviewShotList(production.buildShotList(vagueBrief), vagueBrief, [])
+    .some((f) => f.id === "stated-duration-mismatch"),
+  "an unstated runtime is assumed-duration's finding, not a mismatch",
+);
+
+// --- a requirement quantified over every shot --------------------------------
+// Partial coverage is the case unmet-requirement cannot see: it goes quiet as
+// soon as any shot depicts the element.
+const everyBriefText =
+  "Goal: A 30-second film about a kettle.\nAudience: home cooks\nPlatform: YouTube\nStyle: warm\nConstraints: keep the logo visible in every shot";
+const everyBrief = intakeHeuristics.parseBrief(everyBriefText).structured_brief;
+const everyShots = production.buildShotList(everyBrief);
+
+// The generator never writes "logo", so total absence stays unmet-requirement's.
+const absent = production.reviewShotList(everyShots, everyBrief, []);
+assert.ok(
+  absent.some((f) => f.id.startsWith("unmet-requirement")),
+  "an element in no shot at all is an unmet requirement",
+);
+assert.ok(
+  !absent.some((f) => f.id.startsWith("every-shot")),
+  "and the every-shot check does not double-report it",
+);
+
+const partial = {
+  ...everyShots,
+  shots: everyShots.shots.map((shot, index) =>
+    index === 0 ? shot : { ...shot, description: `${shot.description}, logo visible` },
+  ),
+};
+const partialFindings = production.reviewShotList(partial, everyBrief, []);
+assert.ok(
+  partialFindings.some((f) => f.id === "every-shot-logo"),
+  "an element in most shots but not all is reported with where it is missing",
+);
+assert.ok(
+  !partialFindings.some((f) => f.id.startsWith("unmet-requirement")),
+  "unmet-requirement stays quiet once any shot depicts it",
+);
+
+const covered2 = {
+  ...everyShots,
+  shots: everyShots.shots.map((shot) => ({ ...shot, description: `${shot.description}, logo visible` })),
+};
+assert.ok(
+  !production.reviewShotList(covered2, everyBrief, []).some((f) => f.id.startsWith("every-shot")),
+  "full coverage raises nothing",
+);
+
+// --- prompt pack against the shots -------------------------------------------
+// The prompt pack's seams, the way the asset checks walk the manifest's.
+const shortPack = { ...promptPack, prompts: promptPack.prompts.slice(0, -1) };
+assert.ok(
+  production
+    .reviewShotList(shotList, brief, [], shortPack)
+    .some((f) => f.id.startsWith("missing-prompt")),
+  "a shot with no prompt is reported",
+);
+
+const stalePack = {
+  ...promptPack,
+  prompts: [...promptPack.prompts, { ...promptPack.prompts[0], shot_id: "shot_99" }],
+};
+assert.ok(
+  production
+    .reviewShotList(shotList, brief, [], stalePack)
+    .some((f) => f.id === "stale-prompt-shot_99"),
+  "a prompt pointing at a shot that does not exist is reported",
+);
+
+const idlessPack = {
+  ...promptPack,
+  prompts: promptPack.prompts.map(({ shot_id, ...rest }) => rest),
+};
+assert.ok(
+  !production
+    .reviewShotList(shotList, brief, [], idlessPack)
+    .some((f) => f.id.startsWith("missing-prompt") || f.id.startsWith("stale-prompt")),
+  "a pack that carries no shot ids at all is not judged against them",
+);
+
+assert.ok(
+  !production
+    .reviewShotList(shotList, brief, [], promptPack)
+    .some((f) => f.id.startsWith("missing-prompt") || f.id.startsWith("stale-prompt")),
+  "a pack built from these shots raises neither",
+);
+
 // Every new finding still satisfies the contract the workflow enforces.
 for (const sample of [leaked, contradiction]) {
   assert.ok(sample.length > 0);
 }
+assert.deepEqual(
+  production.validateFindings([
+    ...production.reviewShotList(wrongLength, brief, []),
+    ...partialFindings,
+    ...production.reviewShotList(shotList, brief, [], shortPack),
+  ]),
+  [],
+  "findings from the new checks carry a title and target tasks",
+);
 assert.deepEqual(
   production.validateFindings(
     production.reviewShotList(tightShots, tightBrief, [], null, tightManifest),

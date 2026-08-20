@@ -207,6 +207,10 @@ an empty review queue.
 | Shot list does not fill the runtime | The shots stop short of the planned duration |
 | Asset group is not used by any shot | The manifest lists something no shot calls for, so it would be sourced for nothing |
 | Asset points at a shot that does not exist | The manifest is out of date with the shot list |
+| Planned runtime contradicts the brief | The brief states a duration and the shot list was planned for a different one — the mirror of "Runtime was assumed" |
+| Required in every shot, missing from some | The brief quantifies a requirement over every shot (`keep the logo visible in every shot`) and some shots have it while others do not — the one case "Required element missing" cannot see, because it goes quiet as soon as any shot complies. Total absence stays that check's finding, so the two never fire together |
+| Shot has no prompt | A shot has no entry in the prompt pack, so nothing tells a generator what to produce for it |
+| Prompt points at a shot that does not exist | The prompt pack is out of date with the shot list |
 
 Findings that can be fixed mechanically carry an `enforce` flag; requesting a revision
 replays it through the agents. The rest are reported for a human to judge.
