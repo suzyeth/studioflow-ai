@@ -227,8 +227,61 @@ function readBody(req) {
   assert.equal(anthropicCalls[0].body.system, "sys");
   anthropic.server.close();
 
-  // An HTTP error surfaces with its status.
+  // A transient 5xx is retried and the run never notices; the free tier sheds
+  // load this way in production, especially from cloud egress IPs.
+  let flakyCalls = 0;
+  const flaky = await listen((req, res) => {
+    flakyCalls += 1;
+    if (flakyCalls <= 2) {
+      res.writeHead(503, { "content-type": "application/json" });
+      res.end('{"error":"high demand"}');
+      return;
+    }
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(
+      JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }),
+    );
+  });
+  const persistent = createGeminiProvider({
+    apiKey: "k",
+    model: "m",
+    timeoutMs: 5000,
+    baseUrl: flaky.baseUrl,
+    retries: 2,
+    retryDelayMs: 0,
+  });
+  assert.deepEqual(await persistent.generateJson({ system: "s", user: "u" }), { ok: true });
+  assert.equal(flakyCalls, 3, "two 503s are absorbed by retries");
+  flaky.server.close();
+
+  // ...and a 5xx that outlives the retry budget still degrades, saying so.
+  let dyingCalls = 0;
+  const dying = await listen((req, res) => {
+    dyingCalls += 1;
+    res.writeHead(503, { "content-type": "application/json" });
+    res.end('{"error":"high demand"}');
+  });
+  const spent = createGeminiProvider({
+    apiKey: "k",
+    model: "m",
+    timeoutMs: 5000,
+    baseUrl: dying.baseUrl,
+    retries: 2,
+    retryDelayMs: 0,
+  });
+  await assert.rejects(
+    () => spent.generateJson({ system: "s", user: "u" }),
+    /HTTP 503: .*after 3 attempts/,
+  );
+  assert.equal(dyingCalls, 3, "the retry budget is bounded");
+  dying.server.close();
+
+  // An HTTP error surfaces with its status — and a 429 is NOT retried, because
+  // Gemini uses it for exhausted quota and depleted credits, which waiting
+  // cannot fix.
+  let brokenCalls = 0;
   const broken = await listen((req, res) => {
+    brokenCalls += 1;
     res.writeHead(429, { "content-type": "application/json" });
     res.end('{"error":"rate limited"}');
   });
@@ -237,8 +290,10 @@ function readBody(req) {
     model: "m",
     timeoutMs: 5000,
     baseUrl: broken.baseUrl,
+    retryDelayMs: 0,
   });
   await assert.rejects(() => throttled.generateJson({ system: "s", user: "u" }), /HTTP 429/);
+  assert.equal(brokenCalls, 1, "a 429 fails fast without retries");
 
   // ...and the agent degrades rather than failing the run.
   const degraded = await runIntakeAgent(
