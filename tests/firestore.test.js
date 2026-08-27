@@ -50,6 +50,15 @@ function readBody(req) {
     const docId = decodeURIComponent(match[1]);
     assert.equal(req.headers.authorization, "Bearer t0k3n", "every call carries the token");
 
+    // Real Firestore reserves document ids matching __.*__ and answers 400.
+    // The first probe sentinel was named `__probe__` and only the first real
+    // deployment caught it; this keeps the stub honest about that rule.
+    if (/^__.*__$/.test(docId)) {
+      res.writeHead(400, { "content-type": "application/json" });
+      res.end('{"error":{"code":400,"status":"INVALID_ARGUMENT"}}');
+      return;
+    }
+
     if (req.method === "PATCH") {
       if (failWrites) {
         res.writeHead(503, { "content-type": "application/json" });
