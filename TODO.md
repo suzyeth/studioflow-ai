@@ -4,9 +4,9 @@ Everything here is blocked on something the codebase cannot do for itself: an AP
 key, a cloud account, or software that is not installed. Written to be picked up
 cold on another machine.
 
-Current blocker summary: **no Cloud Run deployment.** The Gemini key is in hand and
-the first real calls have been made (item 1 below is done); `gcloud` is installed.
-Docker is not needed — see item 2.
+Current blocker summary: **items 1–2 are DONE (2026-08-26) — the service is live.**
+URL and production notes in `docs/DEPLOYMENT.md`. What remains: evidence capture
+(item 3, at demo time), Firestore (item 4), production-agent model calls (item 5).
 
 ---
 
@@ -60,20 +60,31 @@ guessing.
 
 ---
 
-## 2. Cloud Run deployment — produces the submission URL
+## 2. ~~Cloud Run deployment~~ — DONE 2026-08-26
 
-Needs a Google Cloud project **with billing enabled**. Cloud Run has a free tier
-but will not turn on without a billing account. This is separate from the Gemini
-key above.
+**Live at <https://studioflow-ai-334984245629.us-central1.run.app>** — project
+`studioflow-ai-2026`, billing linked, health reports `gemini` / `gemini-3.6-flash`,
+and a full run has completed with `parsed_by: gemini`.
 
 - [x] `winget install Google.CloudSDK` — installed 2026-08-19, Cloud SDK 580.0.0
-- [ ] `gcloud auth login` (opens a browser — must be done by a human)
-- [ ] Create/select a GCP project, enable billing
-- [ ] `gcloud config set project PROJECT_ID`
-- [ ] Enable the APIs: `gcloud services enable run.googleapis.com cloudbuild.googleapis.com`
-- [ ] Build: `gcloud builds submit --tag gcr.io/PROJECT_ID/studioflow-ai`
-- [ ] Deploy (note the instance flags — see the warning below)
-- [ ] Record the public URL in `docs/DEPLOYMENT.md`
+- [x] `gcloud auth login` — authenticated as the account's own Google login
+- [x] Project `studioflow-ai-2026` created, billing account linked
+- [x] APIs enabled (run, cloudbuild, secretmanager, artifactregistry)
+- [x] Built and deployed with the instance flags below; key delivered via Secret
+      Manager (`gemini-api-key:latest` — pulled from the AI Studio key that lives
+      in the account's `gen-lang-client-0708711476` project, so nothing was pasted)
+- [x] Public URL recorded in `docs/DEPLOYMENT.md`
+
+**Two production caveats (learned live, 2026-08-26):**
+
+- The free tier 503s intermittently from Cloud Run egress IPs while the same call
+  succeeds from a laptop. `lib/llm.js` now retries 5xx (bounded, default 2); a run
+  that still fails degrades honestly with the reason in the audit trail.
+- Do NOT "fix" the 503s by linking billing to `gen-lang-client-0708711476`: tried,
+  and the paid tier answered `429 prepayment credits depleted` (the billing account
+  has no usable Gemini API funds) while also breaking the previously-working free
+  tier — unlinked to recover. Revisit only after real credits are confirmed on the
+  billing account.
 
 ```bash
 gcloud run deploy studioflow-ai \

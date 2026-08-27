@@ -4,6 +4,25 @@ The MVP is a zero-dependency Node.js service that can run locally or on Cloud
 Run. It serves the web prototype and exposes the first API endpoints that will
 later connect to Firestore, Pub/Sub, Cloud Storage, Gemini, and ADK.
 
+## Live Deployment (2026-08-26)
+
+**Service URL:** <https://studioflow-ai-334984245629.us-central1.run.app>
+
+- GCP project `studioflow-ai-2026`, region `us-central1`, service `studioflow-ai`
+- `--max-instances=1 --min-instances=1` (the run store is in-memory; see the
+  warning in TODO.md — multiple instances would 404 the poller)
+- `GEMINI_API_KEY` supplied from Secret Manager (`gemini-api-key:latest`);
+  `/api/health` reports `intake_provider: gemini`, `intake_model: gemini-3.6-flash`
+- First live workflow run completed end-to-end on 2026-08-26: 6 agents, Critic
+  findings routed to review, `parsed_by: gemini` in the run record
+
+**Production behaviour worth knowing:** the Gemini free tier sheds load with
+intermittent 503s, and does so far more aggressively for requests from cloud
+egress IPs — the same call that succeeds from a laptop can 503 from Cloud Run.
+The adapter retries 5xx a bounded number of times (see `lib/llm.js`), and a run
+that still fails degrades to the keyless parser with the reason in the audit
+trail rather than dying.
+
 ## Local
 
 ```bash
