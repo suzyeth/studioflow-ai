@@ -34,14 +34,20 @@ evidence rather than a string someone typed.
 
 ### The instance flags, and the one that is deliberately absent
 
-`--max-instances=1` is set and is **required for correctness**, not for cost: the
-run store is an in-memory `Map` and the client polls, so a second instance would
-serve `POST /run` from one and the next poll from another, returning 404. Firestore
-(TODO.md item 4) is what removes this.
+**Since 2026-08-27 the store is mirrored to Firestore** (`FIRESTORE_PROJECT` env
+var; see `lib/store-firestore.js`): every save/update is written through in the
+background and a Map miss rehydrates from Firestore, so **a restart or
+scale-to-zero no longer loses completed runs** — `/api/health` reports the mirror
+under `store`, including the last write error if one is stuck.
 
-`--min-instances=1` is **deliberately not set.** It would also be needed to survive
-scale-to-zero wiping in-flight runs, but it bills for an always-allocated container.
-Turn it on only for the window in which you are recording or being judged:
+`--max-instances=1` stays set anyway: the job queue is in-process and per-instance,
+and two instances interleaving review actions on one run would race. The mirror
+removes the *durability* reason for the flag, not the *concurrency* one.
+
+`--min-instances=1` is **deliberately not set.** Scale-to-zero once wiped in-flight
+runs; now it only costs a cold start plus a rehydration read. An always-allocated
+container bills against a finite credit grant. Turn it on only for the window in
+which you are recording or being judged:
 
 ```bash
 gcloud run services update studioflow-ai --region us-central1 --min-instances=1

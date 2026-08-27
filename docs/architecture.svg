@@ -46,7 +46,7 @@
   <!-- ============================ SERVER ============================ -->
   <rect x="40" y="330" width="1200" height="356" rx="10" fill="#161b22" stroke="#30363d"/>
   <text x="58" y="356" fill="#58a6ff" font-size="13" font-weight="600" letter-spacing="1.4">CLOUD RUN  ·  node server.js</text>
-  <text x="330" y="356" fill="#8b949e" font-size="12">container built by Cloud Build from the Dockerfile; not yet deployed</text>
+  <text x="330" y="356" fill="#8b949e" font-size="12">built by Cloud Build, deployed: service studioflow-ai · us-central1 · key from Secret Manager</text>
 
   <rect x="58" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
   <text x="72" y="392" fill="#e6edf3" font-size="14" font-weight="600">server.js</text>
@@ -58,12 +58,12 @@
 
   <rect x="626" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
   <text x="640" y="392" fill="#e6edf3" font-size="14" font-weight="600">createRunStore</text>
-  <text x="640" y="411" fill="#f0a35e" font-size="12">in-memory Map, LRU 50 — lost on restart</text>
+  <text x="640" y="411" fill="#8b949e" font-size="12">in-memory Map, LRU 50 — synchronous truth</text>
 
-  <rect x="954" y="370" width="268" height="58" rx="7" fill="#1f1a10" stroke="#d29922" stroke-dasharray="6 4"/>
-  <text x="968" y="392" fill="#d29922" font-size="14" font-weight="600">Firestore</text>
-  <text x="968" y="411" fill="#8b949e" font-size="12">planned — TODO.md item 4</text>
-  <line x1="894" y1="399" x2="948" y2="399" stroke="#d29922" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowPlanned)"/>
+  <rect x="954" y="370" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <text x="968" y="392" fill="#e6edf3" font-size="14" font-weight="600">Firestore</text>
+  <text x="968" y="411" fill="#8b949e" font-size="12">write-through mirror — runs survive restarts</text>
+  <line x1="894" y1="399" x2="948" y2="399" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
 
   <rect x="58" y="444" width="268" height="58" rx="7" fill="#1c2230" stroke="#3d4757"/>
   <text x="72" y="466" fill="#e6edf3" font-size="14" font-weight="600">lib/queue.js</text>

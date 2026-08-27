@@ -137,15 +137,24 @@ Cloud Logging correlation story works without code changes.
 
 ---
 
-## 4. Replace the in-memory store with Firestore
+## 4. ~~Replace the in-memory store with Firestore~~ — DONE 2026-08-27, as a mirror
 
-The item that makes the instance flags above unnecessary, and the last piece of the
-"Google Cloud architecture" claim that is currently unbacked.
+Implemented as a **write-through mirror** (`lib/store-firestore.js`) rather than the
+store swap this item originally described. The swap would have made the store async,
+and `createRunStore` is synchronous on purpose — it carries a guard that rejects
+async updaters, added after an async updater silently broke the revision loop over
+HTTP. The mirror keeps the Map as the synchronous truth, mirrors every write in the
+background, and rehydrates a Map miss from Firestore in the routes.
 
-- [ ] Implement a Firestore-backed store behind the same interface as
-      `createRunStore` (`save` / `get` / `update` / `size`)
-- [ ] Swap it in `server.js` — nothing else should need to change
-- [ ] Drop `--max-instances=1` and confirm polling still works across instances
+- [x] Firestore REST via built-in fetch — zero new dependencies (the `@google/genai`
+      budget stays spent on the rules requirement)
+- [x] Native database `(default)` in `nam5`, service account has `datastore.user`
+- [x] `FIRESTORE_PROJECT` env var enables it; `/api/health` reports the mirror and
+      its last write error; a configured-but-unreachable Firestore refuses to boot
+- [x] Runs survive a restart (verified live — see DEPLOYMENT.md)
+- [ ] ~~Drop `--max-instances=1`~~ — kept: the in-process queue is per-instance, so
+      the flag still prevents two instances racing review actions. The mirror
+      removes the durability reason, not the concurrency one.
 
 The store interface was kept deliberately narrow for this. Collection layout is
 sketched in `docs/DATA_MODEL.md`.

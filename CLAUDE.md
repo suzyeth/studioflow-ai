@@ -33,12 +33,12 @@ and an in-process worker (`lib/queue.js`) executes the tasks one at a time, savi
 after every state change so a poller sees the graph advance.
 
 **But only the Intake Agent can call a model.** The production agents are
-deterministic generators, the queue is in-process rather than Pub/Sub, and nothing
-persists across a restart. There is still no Firestore. Artifacts
-carry `generated_by` (`"local"` / a provider name / `"derived"` / `"scripted"`) so
-provenance is visible rather than implied. The docs in `docs/` describe the intended
-cloud implementation; treat them as the spec, not as a description of current
-behavior.
+deterministic generators and the queue is in-process rather than Pub/Sub. Since
+2026-08-27 the run store is **mirrored to Firestore** (`lib/store-firestore.js`):
+the in-memory Map stays the synchronous source of truth, every write is mirrored
+in the background, and a Map miss rehydrates from Firestore — runs survive a
+restart, verified live. Artifacts carry `generated_by` (`"local"` / a provider
+name / `"derived"` / `"scripted"`) so provenance is visible rather than implied.
 
 **One runtime dependency: `@google/genai`.** The project was built with zero, and
 that rule held until the hackathon rules forced it — All Things Agentic requires at
@@ -50,8 +50,9 @@ anywhere, and it has now been spent.
 
 Outstanding work that needs a key, a cloud account, or software that is not
 installed lives in [TODO.md](TODO.md) — check it before assuming something is
-missing by accident. The big two: **no Gemini key has ever been used, and the app
-has never been deployed.**
+missing by accident. The service **is deployed and live on Cloud Run with a real
+Gemini key** (see `docs/DEPLOYMENT.md` for the URL and production notes); what
+remains there is evidence capture and the optional production-agent model calls.
 
 ## Commands
 
@@ -119,9 +120,16 @@ Five files carry the whole system; the split matters:
   `createRunStore` `structuredClone`s on every save/get/update so callers can never
   hold a live reference into the store.
 - **[server.js](server.js)** — thin HTTP transport: route match → call `lib/workflow`
-  → `sendJson`. Runs live in an in-memory `Map` keyed by `trace_id`, so **restarting
-  the server drops all runs**, and the store is LRU-capped at 50 runs. No business
-  logic belongs here.
+  → `sendJson`. Runs live in an in-memory `Map` keyed by `trace_id` (LRU-capped at
+  50) that is the synchronous source of truth; with `FIRESTORE_PROJECT` set, every
+  write is mirrored to Firestore and a Map miss rehydrates through `loadRun`, so a
+  restart no longer drops completed runs. No business logic belongs here.
+- **[lib/store-firestore.js](lib/store-firestore.js)** — the Firestore mirror:
+  REST via built-in fetch (zero new dependencies), metadata-server token, one
+  document per run with the whole run as a single string field. A mirror failure
+  never fails a run (`/api/health` reports `store.last_error`); a configured but
+  unreachable Firestore refuses to boot. Document ids matching `__.*__` are
+  reserved by Firestore — the test stub enforces this because production found it.
 - **[app-render.js](app-render.js)** — rendering only. Reads `state`, writes into
   `nodes`. Loaded before `app.js` so its `boot()` can call `renderAll()`. Nothing
   here fetches or mutates workflow state.
