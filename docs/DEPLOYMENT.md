@@ -4,17 +4,72 @@ The MVP is a zero-dependency Node.js service that can run locally or on Cloud
 Run. It serves the web prototype and exposes the first API endpoints that will
 later connect to Firestore, Pub/Sub, Cloud Storage, Gemini, and ADK.
 
-## Live Deployment (2026-08-26)
+## Live Deployment
 
 **Service URL:** <https://studioflow-ai-334984245629.us-central1.run.app>
 
+`GET /api/health` is the whole deployment claim in one response, which is why the
+demo points a cursor at it instead of at a console tab:
+
+```json
+{
+  "service":  "studioflow-ai",
+  "revision": "studioflow-ai-00009-wm4",
+  "runtime":  "cloud-run",
+  "intake_provider": "gemini",
+  "intake_model":    "gemini-3.5-flash-lite"
+}
+```
+
+`service` / `revision` / `runtime` come from `K_SERVICE` and `K_REVISION`, which
+only Cloud Run injects — absent locally, which is what makes their presence
+evidence rather than a string someone typed.
+
 - GCP project `studioflow-ai-2026`, region `us-central1`, service `studioflow-ai`
-- `--max-instances=1 --min-instances=1` (the run store is in-memory; see the
-  warning in TODO.md — multiple instances would 404 the poller)
-- `GEMINI_API_KEY` supplied from Secret Manager (`gemini-api-key:latest`);
-  `/api/health` reports `intake_provider: gemini`, `intake_model: gemini-3.6-flash`
-- First live workflow run completed end-to-end on 2026-08-26: 6 agents, Critic
-  findings routed to review, `parsed_by: gemini` in the run record
+- Built by Cloud Build from the repository Dockerfile; no local Docker
+- `GEMINI_API_KEY` from Secret Manager (`gemini-api-key:latest`), read by the
+  default compute service account
+- Billing is a hackathon credit grant (£112.82), not a card. A £20 budget alert at
+  25 / 50 / 90 % is attached to the project
+
+### The instance flags, and the one that is deliberately absent
+
+`--max-instances=1` is set and is **required for correctness**, not for cost: the
+run store is an in-memory `Map` and the client polls, so a second instance would
+serve `POST /run` from one and the next poll from another, returning 404. Firestore
+(TODO.md item 4) is what removes this.
+
+`--min-instances=1` is **deliberately not set.** It would also be needed to survive
+scale-to-zero wiping in-flight runs, but it bills for an always-allocated container.
+Turn it on only for the window in which you are recording or being judged:
+
+```bash
+gcloud run services update studioflow-ai --region us-central1 --min-instances=1
+gcloud run services update studioflow-ai --region us-central1 --min-instances=0
+```
+
+### Model choice was measured, not assumed
+
+`gemini-3.5-flash-lite`, and the code default rather than a Cloud Run env var, so
+the repository is the single source of truth. Measured against this key:
+
+| Model | Result |
+| --- | --- |
+| `gemini-3.6-flash` | `429 prepayment credits are depleted` — unusable |
+| `gemini-3.5-flash` | intermittent `503`, model overloaded |
+| **`gemini-3.5-flash-lite`** | **answers reliably, ~4.3s against ~10s** |
+
+All three satisfy the "Gemini 3.5 or newer" rule; only one of them works.
+
+**Verified on the live service, 8 consecutive runs:** intake asks exactly one
+question, answering it clears that question and the finding it caused, three
+findings become two, revise produces shots v2 with different content, approve
+closes the run with a packet. 8/8.
+
+**Health reports the CONFIGURED provider, not a working one.** A call can fail and
+degrade to the keyless parser while `/api/health` still says `gemini` — that
+happened on the first deploy. `parsed_by` on a run, and `degraded_reason` in its
+audit trail, are the honest answers. `npm run smoke` exists for the same reason.
 
 **Production behaviour worth knowing:** the Gemini free tier sheds load with
 intermittent 503s, and does so far more aggressively for requests from cloud

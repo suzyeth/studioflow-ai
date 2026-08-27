@@ -71,9 +71,17 @@ async function handleApi(req, res, pathname) {
   if (req.method === "GET" && pathname === "/api/health") {
     sendJson(res, 200, {
       ok: true,
-      service: "studioflow-local",
-      // Which model actually backs the Intake Agent right now. "local" means the
-      // keyless parser: no model is configured.
+      // Cloud Run injects K_SERVICE and K_REVISION; their absence is what makes
+      // this a local process. Reporting them means this one response is the
+      // deployment evidence — the demo points a cursor at it rather than at a
+      // console tab, and it can no longer say "local" while serving from Cloud Run.
+      service: process.env.K_SERVICE || "studioflow-local",
+      revision: process.env.K_REVISION || null,
+      runtime: process.env.K_SERVICE ? "cloud-run" : "local",
+      // Which model is CONFIGURED for the Intake Agent. Note the word: a call can
+      // still fail and degrade to the keyless parser, and this field will not say
+      // so. `parsed_by` on a run is the only honest answer to "did the model
+      // actually run"; see the degraded_reason in that run's audit trail.
       intake_provider: provider.name,
       intake_model: provider.model || null,
       queue: { depth: queue.depth, busy: queue.busy, processed: queue.processed },

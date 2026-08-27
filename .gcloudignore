@@ -1,0 +1,27 @@
+# What NOT to upload to Cloud Build.
+#
+# gcloud uses this file, not .dockerignore — and if it is absent it silently
+# generates one from .gitignore, which works but is not something you can read.
+# The Dockerfile installs dependencies from package-lock.json inside the image,
+# so shipping the local 400MB node_modules would only make the upload slow.
+
+.git
+.gitignore
+node_modules
+npm-debug.log
+*.log
+
+# Local-only
+.claude/
+.env
+.env.*
+*.key
+
+# Not needed to run the service. docs/ IS uploaded on purpose: the Dockerfile
+# copies it so docs/architecture.svg is served from the deployed URL.
+tests/
+scripts/
+
+.DS_Store
+._*
+Thumbs.db

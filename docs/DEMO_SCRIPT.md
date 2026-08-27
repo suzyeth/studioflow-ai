@@ -11,14 +11,17 @@ step that hangs, so every step below is either instant or has a stated fallback.
 
 Target **3:40**, hard ceiling 4:00. The margin is for speaking slower than you plan to.
 
-Narration is ~560 words. At a deliberate 135 wpm that is 4:09 — **over the ceiling on
-paper**, and the only reason it fits is that two of those stretches are spoken over
-model latency that would otherwise be dead air. Read it aloud with a timer before
-recording. If you are over, cut the second half of the Critic section (the "twelve
-checks" lines) — never the clarification loop or the revision, which are the track.
+Narration is ~560 words. At a deliberate 135 wpm that is 4:09 — **over the ceiling.**
 
-**Two ten-second waits, both narrated.** Intake is the only step that calls a model,
-it takes ~10s against `gemini-3.6-flash`, and it runs twice: once on the first pass and
+It used to be that two ~10s model waits absorbed the overrun. Switching to
+`gemini-3.5-flash-lite` cut those to ~4.5s each, which is better for the demo and
+worse for the script: there are now only ~9 seconds of latency to speak over instead
+of ~20. **The narration has to lose 25–40 words.** Read it aloud with a timer, and cut
+from the second half of the Critic section (the "fifteen checks" lines) — never the
+clarification loop or the revision, which are the track.
+
+**Two four-second waits, both narrated.** Intake is the only step that calls a model,
+it takes ~4.5s against `gemini-3.5-flash-lite`, and it runs twice: once on the first pass and
 once when the clarifying answer reruns the workflow. Everything else finishes in
 milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
 
@@ -34,9 +37,13 @@ milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
 - [ ] Load the deployed URL once and run one full workflow, to warm the container and
       confirm the build actually works. Then reload for a clean state. **This also warms
       the model path** — the first call of the day is the slowest one.
-- [ ] `curl <URL>/api/health` — confirm `"intake_provider": "gemini"`. If it says
-      `local`, the key is not reaching the container and the "powered by Gemini" claim
-      is not demonstrable. Fix before recording.
+- [ ] `curl <URL>/api/health` — confirm `"runtime": "cloud-run"` **and**
+      `"intake_provider": "gemini"`. If the provider says `local`, the key is not
+      reaching the container. Fix before recording.
+- [ ] **Then run one workflow and check `parsed_by` on the result.** Health reports the
+      *configured* provider, not a working one: a failing call degrades to the keyless
+      parser silently while health still says `gemini`. That happened on the first
+      deploy. `parsed_by: gemini` on an actual run is the only real confirmation.
 
 **The screen**
 
@@ -99,11 +106,16 @@ words): `Young urban professionals`
 > StudioFlow AI is not a video generator. It is a collaborator: it reads the brief, asks
 > for what is missing, produces a production packet, and shows you where the packet
 > failed the brief — then takes your correction and carries it forward. This is running
-> on Cloud Run, and the health endpoint reports which model is actually live: Gemini
-> three-point-six Flash, through the Google GenAI SDK.
+> on Cloud Run — and the health endpoint proves both halves of that sentence at once.
 
-**Point at `"intake_provider": "gemini"` with the cursor.** That single field is the
-"powered by Gemini" claim, evidenced rather than asserted.
+**Point the cursor at these four lines in order:** `"runtime": "cloud-run"`,
+`"revision"`, `"intake_provider": "gemini"`, `"intake_model"`. That one response is
+the entire deployment claim. `runtime` and `revision` come from environment variables
+only Cloud Run injects, which is what makes them evidence rather than a string
+somebody typed.
+
+> Running on Cloud Run, on this revision, backed by Gemini three-point-five
+> Flash-Lite through the Google GenAI SDK.
 
 ### 0:45–1:15 · Paste the brief, watch the graph move
 
@@ -112,9 +124,9 @@ words): `Young urban professionals`
 > I paste the brief and start the run. The API returns immediately with every task
 > queued — the work happens in the background, and the client polls.
 
-⚠️ **Intake takes about ten seconds against a real model** (measured: 7.7s, 10.0s, 9.5s on
-`gemini-3.6-flash` across three runs), against under three for the whole graph on the keyless path. Do
-not wait it out in silence — ten seconds of dead air is a very long time on camera, and
+⚠️ **Intake takes about four and a half seconds on the deployed service** (measured
+4.1–4.7s across 8 runs on `gemini-3.5-flash-lite`), against under three for the whole graph on the keyless path. Do
+not wait it out in silence — five seconds of dead air is still a long time on camera, and
 there is no cut available to hide it. **Talk through it.** The lines below are written
 to fill exactly that gap, so deliver them while Intake is spinning:
 
@@ -142,7 +154,7 @@ talking — they finish in milliseconds, and that contrast is worth seeing.
 
 **Answer the question: `Young urban professionals`. Submit.**
 
-⚠️ **This is the second ten-second wait.** Answering reruns the whole workflow, which
+⚠️ **This is the second four-second wait.** Answering reruns the whole workflow, which
 means Intake calls the model again. The lines below are sized to cover it — start
 speaking as soon as you submit, not after.
 
@@ -163,13 +175,12 @@ speaking as soon as you submit, not after.
 > the reveal landed at ten. It found that by reading the generated shot list, not by
 > restating the brief back to me — and it names the agents responsible.
 >
-> It matters just as much that this queue is short. Twelve checks ran against these
-> artifacts. Ten found nothing, because this brief gave them nothing to check. A review
+> It matters just as much that this queue is short. Fifteen checks ran against these
+> artifacts. Thirteen found nothing, because this brief gave them nothing to check. A review
 > queue is only worth reading if everything in it is real.
 
-*(Twelve is `CHECKS.length` in `critic-checks.js` — a judge can count them. Do not
-round it up to the fifteen finding types the README table lists; those are the shapes a
-finding can take, not the number of checks that ran.)*
+*(Fifteen is `CHECKS.length` in `critic-checks.js` — a judge can count them. Do not
+confuse it with the number of finding types; these are the checks that ran.)*
 
 ### 2:25–3:00 · Revise — the artifact actually changes
 
@@ -221,7 +232,7 @@ You cannot cut, so decide these now rather than freezing on camera.
 
 | What happens | What you do |
 | --- | --- |
-| The run hangs past ~25 seconds | Intake against a real model is ~10s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
+| The run hangs past ~20 seconds | Intake against a real model is ~4.5s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
 | `/api/health` says `local` | **Stop. Do not record.** The central claim is not demonstrable. Fix the secret binding first. |
 | The first run shows no clarifying question | You pasted a brief that has the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
 | The first run shows more than one question | Same cause, different direction: the brief lost more than the audience line. |
