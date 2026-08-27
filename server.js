@@ -12,6 +12,7 @@ const {
 } = require("./lib/workflow");
 const { createProvider } = require("./lib/llm");
 const { createJobQueue } = require("./lib/queue");
+const { createFirestoreMirror, withMirror } = require("./lib/store-firestore");
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
@@ -19,7 +20,34 @@ const ROOT = __dirname;
 // a task running, which would hide the very thing the task graph exists to show.
 const STEP_DELAY_MS = Number(process.env.STUDIOFLOW_STEP_DELAY_MS || 450);
 
-const runStore = createRunStore();
+// FIRESTORE_PROJECT turns on the Firestore mirror: the in-memory store stays
+// the synchronous source of truth, every write is mirrored in the background,
+// and a Map miss rehydrates from Firestore — so runs survive a restart and a
+// second instance. Unset, the store is exactly what it always was.
+const mirror = process.env.FIRESTORE_PROJECT
+  ? createFirestoreMirror({
+      projectId: process.env.FIRESTORE_PROJECT,
+      baseUrl: process.env.FIRESTORE_BASE_URL || undefined,
+      tokenUrl: process.env.FIRESTORE_TOKEN_URL || undefined,
+    })
+  : null;
+
+const memoryStore = createRunStore();
+const runStore = withMirror(memoryStore, mirror);
+
+// A run that fell out of the Map (restart, LRU eviction, another instance)
+// comes back from the mirror. Rehydration writes through memoryStore, not
+// runStore, so it does not echo the same document straight back to Firestore.
+async function loadRun(traceId) {
+  const run = runStore.get(traceId);
+  if (run || !mirror) return run;
+
+  const persisted = await mirror.fetch(traceId);
+  if (!persisted) return null;
+
+  memoryStore.save(persisted);
+  return runStore.get(traceId);
+}
 const intakeHeuristics = loadIntakeHeuristics(ROOT);
 const production = loadProductionHeuristics(ROOT);
 const provider = createProvider(intakeHeuristics);
@@ -85,6 +113,11 @@ async function handleApi(req, res, pathname) {
       intake_provider: provider.name,
       intake_model: provider.model || null,
       queue: { depth: queue.depth, busy: queue.busy, processed: queue.processed },
+      // Whether runs survive a restart, and whether the last mirror write
+      // landed. A stuck mirror shows up here rather than failing a run.
+      store: mirror
+        ? { mirror: "firestore", project: mirror.projectId, last_error: mirror.lastError }
+        : { mirror: "none" },
       step_delay_ms: STEP_DELAY_MS,
       time: new Date().toISOString(),
     });
@@ -125,7 +158,7 @@ async function handleApi(req, res, pathname) {
 
   const workflowMatch = pathname.match(/^\/api\/workflow\/([^/]+)$/);
   if (req.method === "GET" && workflowMatch) {
-    const run = runStore.get(workflowMatch[1]);
+    const run = await loadRun(workflowMatch[1]);
     if (!run) {
       sendJson(res, 404, { error: "Workflow run not found" });
       return;
@@ -142,7 +175,7 @@ async function handleApi(req, res, pathname) {
     try {
       const body = await readRequestBody(req);
       const payload = body ? JSON.parse(body) : {};
-      const existing = runStore.get(clarifyMatch[1]);
+      const existing = await loadRun(clarifyMatch[1]);
 
       if (!existing) {
         sendJson(res, 404, { error: "Workflow run not found" });
@@ -197,7 +230,7 @@ async function handleApi(req, res, pathname) {
         return;
       }
 
-      const existing = runStore.get(reviewMatch[1]);
+      const existing = await loadRun(reviewMatch[1]);
       if (!existing) {
         sendJson(res, 404, { error: "Workflow run not found" });
         return;
@@ -285,6 +318,18 @@ const server = http.createServer((req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`StudioFlow AI local server running at http://localhost:${PORT}`);
-});
+// A configured mirror that cannot reach Firestore is a misconfiguration, and
+// misconfiguration fails loudly at boot — not silently mid-demo, with the
+// operator believing runs are durable.
+const ready = mirror ? mirror.probe() : Promise.resolve();
+
+ready
+  .then(() => {
+    server.listen(PORT, () => {
+      console.log(`StudioFlow AI local server running at http://localhost:${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.error(`FIRESTORE_PROJECT is set but Firestore is unreachable: ${error.message}`);
+    process.exit(1);
+  });

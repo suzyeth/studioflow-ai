@@ -5,10 +5,10 @@
   "description": "StudioFlow AI hackathon MVP: constraint compliance for video briefs.",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check lib/workflow.js && node --check lib/llm.js && node --check lib/queue.js && node --check lib/agents/intake.js && node --check lib/agents/pipeline.js && node --check data.js && node --check intake-heuristics.js && node --check critic-checks.js && node --check production-heuristics.js && node --check view-model.js && node --check app-render.js && node --check app.js && node --check scripts/list-models.js && node --check scripts/smoke.js && node --check tests/workflow.test.js && node --check tests/intake.test.js && node --check tests/production.test.js && node --check tests/async.test.js && node --check tests/http.test.js",
+    "check": "node --check server.js && node --check lib/workflow.js && node --check lib/llm.js && node --check lib/store-firestore.js && node --check lib/queue.js && node --check lib/agents/intake.js && node --check lib/agents/pipeline.js && node --check data.js && node --check intake-heuristics.js && node --check critic-checks.js && node --check production-heuristics.js && node --check view-model.js && node --check app-render.js && node --check app.js && node --check scripts/list-models.js && node --check scripts/smoke.js && node --check tests/workflow.test.js && node --check tests/intake.test.js && node --check tests/production.test.js && node --check tests/async.test.js && node --check tests/http.test.js && node --check tests/firestore.test.js",
     "models": "node scripts/list-models.js",
     "smoke": "node scripts/smoke.js",
-    "test": "node tests/workflow.test.js && node tests/intake.test.js && node tests/production.test.js && node tests/async.test.js && node tests/http.test.js"
+    "test": "node tests/workflow.test.js && node tests/intake.test.js && node tests/production.test.js && node tests/async.test.js && node tests/http.test.js && node tests/firestore.test.js"
   },
   "engines": {
     "node": ">=20"
