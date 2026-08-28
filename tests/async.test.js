@@ -8,6 +8,7 @@ const {
   createLocalProvider,
 } = require("../lib/llm");
 const { runIntakeAgent } = require("../lib/agents/intake");
+const { buildUserPrompt: buildShotPrompt, runShotAgent } = require("../lib/agents/shots");
 const {
   createQueuedRun,
   createRunStore,
@@ -332,6 +333,139 @@ function readBody(req) {
   });
   await assert.rejects(() => impatient.generateJson({ system: "s", user: "u" }));
   slow.server.close();
+
+  // --- the Shot Agent writes descriptions over the fixed skeleton ------------
+  const shotBrief = intakeHeuristics.parseBrief(demo.brief.text).structured_brief;
+  const skeleton = production.buildShotList(shotBrief);
+
+  // The prompt must not leak the brief's constraints — the first pass has to be
+  // able to be wrong, or the Critic has nothing to catch and the review gate
+  // becomes decorative.
+  const shotPrompt = buildShotPrompt(skeleton, shotBrief);
+  assert.ok(!/first 5 seconds/i.test(shotPrompt), "the timing constraint is not in the prompt");
+  assert.ok(!/health claims/i.test(shotPrompt), "the prohibition is not in the prompt");
+
+  const modelProvider = {
+    name: "fakemodel",
+    requiresKey: true,
+    async generateJson({ user }) {
+      const ids = [...user.matchAll(/- (shot_\d+) \(/g)].map((m) => m[1]);
+      return {
+        descriptions: Object.fromEntries(
+          ids.map((id, i) => [id, `Model-written frame ${i + 1}, neon reflections on wet asphalt.`]),
+        ),
+      };
+    },
+  };
+
+  const modelShots = await runShotAgent(
+    { structuredBrief: shotBrief },
+    { provider: modelProvider, production },
+  );
+  assert.equal(modelShots.provider, "fakemodel");
+  assert.equal(modelShots.degraded, false);
+  assert.ok(
+    modelShots.shotList.shots.every((shot) => /Model-written frame/.test(shot.description)),
+    "every description is the model's",
+  );
+  assert.ok(
+    !modelShots.shotList.shots.some((shot) => /[.;,]$/.test(shot.description)),
+    "trailing punctuation is stripped so the prompt pack does not render '..'",
+  );
+  assert.deepEqual(
+    modelShots.shotList.shots.map((s) => [s.id, s.start_seconds, s.end_seconds, s.is_hero]),
+    skeleton.shots.map((s) => [s.id, s.start_seconds, s.end_seconds, s.is_hero]),
+    "timings, order, and flags are exactly the skeleton's",
+  );
+
+  // A response with a missing or invented id keeps the skeleton and says why.
+  const wrongIds = await runShotAgent(
+    { structuredBrief: shotBrief },
+    {
+      provider: {
+        name: "fakemodel",
+        async generateJson() {
+          return { descriptions: { shot_1: "only one", shot_99: "invented" } };
+        },
+      },
+      production,
+    },
+  );
+  assert.equal(wrongIds.provider, "derived");
+  assert.equal(wrongIds.degraded, true);
+  assert.match(wrongIds.degraded_reason, /schema validation failed/);
+  assert.deepEqual(
+    wrongIds.shotList.shots.map((s) => s.description),
+    skeleton.shots.map((s) => s.description),
+    "the skeleton's own descriptions survive",
+  );
+
+  // A throwing provider degrades the same way.
+  const dead = await runShotAgent(
+    { structuredBrief: shotBrief },
+    {
+      provider: {
+        name: "fakemodel",
+        async generateJson() {
+          throw new Error("HTTP 503: high demand");
+        },
+      },
+      production,
+    },
+  );
+  assert.equal(dead.degraded, true);
+  assert.match(dead.degraded_reason, /HTTP 503/);
+
+  // The kill switch forces the deterministic path even with a live provider.
+  process.env.STUDIOFLOW_SHOT_AGENT = "off";
+  const switched = await runShotAgent(
+    { structuredBrief: shotBrief },
+    { provider: modelProvider, production },
+  );
+  delete process.env.STUDIOFLOW_SHOT_AGENT;
+  assert.equal(switched.provider, "derived");
+  assert.equal(switched.degraded, false, "off is a choice, not a degradation");
+
+  // --- end to end: model prose flows through, and the Critic still fires -----
+  const e2eProvider = {
+    name: "fakemodel",
+    requiresKey: true,
+    async generateJson({ system, user }) {
+      if (/Shot Agent/.test(system)) {
+        const ids = [...user.matchAll(/- (shot_\d+) \(/g)].map((m) => m[1]);
+        return {
+          descriptions: Object.fromEntries(
+            ids.map((id, i) => [id, `Model-written frame ${i + 1}, neon reflections.`]),
+          ),
+        };
+      }
+      // Intake: answer with the heuristic parse so the contract passes.
+      return intakeHeuristics.parseBrief(user.match(/---\n([\s\S]*?)\n---/)[1]);
+    },
+  };
+
+  const modelStore = createRunStore();
+  const modelRun = modelStore.save(createQueuedRun(demo, demo.brief.text));
+  await executeRun(modelRun.trace_id, {
+    store: modelStore,
+    demo,
+    agentDeps: { provider: e2eProvider, intakeHeuristics, production },
+    stepDelayMs: 0,
+  });
+  const finishedModelRun = modelStore.get(modelRun.trace_id);
+
+  const shotsArtifact = finishedModelRun.artifacts.find((a) => a.type === "shots");
+  assert.equal(shotsArtifact.generated_by, "fakemodel", "provenance names the model");
+  assert.match(shotsArtifact.content_markdown, /Model-written frame/);
+  assert.match(
+    finishedModelRun.artifacts.find((a) => a.type === "prompts").content_markdown,
+    /Model-written frame/,
+    "the prompt pack derives from the model's prose",
+  );
+  assert.ok(
+    finishedModelRun.review_items.some((item) => /too late/i.test(item.title)),
+    "the Critic still catches the late reveal — model prose does not close the review gate",
+  );
 
   console.log("async + adapter test passed");
 })();

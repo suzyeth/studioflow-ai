@@ -161,20 +161,22 @@ sketched in `docs/DATA_MODEL.md`.
 
 ---
 
-## 5. Wire a model into the production agents
+## 5. ~~Wire a model into the production agents~~ — Shot Agent DONE 2026-08-27
 
-Only the Intake Agent can call a model. Planning / Shot / Asset / Prompt / Critic
-are deterministic generators, which is why the generated prose reads as structure
-rather than writing.
+- [x] `lib/agents/shots.js`: the model writes descriptions over the deterministic
+      skeleton via a narrow contract (`{"descriptions": {"shot_1": ...}}`) — it
+      cannot move a timing, drop a shot, or invent one, and it does not see the
+      brief's constraints, so the Critic's first-pass-can-be-wrong thesis holds
+- [x] Intake's degradation pattern: schema validation (exact id set, one-liners),
+      any failure keeps the template descriptions with the reason in the audit
+      trail; the offline `file://` path and the no-key path are untouched
+- [x] Live smoke on `gemini-3.5-flash-lite`: 1.3s, vivid filmable prose, and the
+      hero still lands at 0:10 so "Subject appears too late" still fires
+- [x] `STUDIOFLOW_SHOT_AGENT=off` kill switch for a fully deterministic demo
+- [ ] Deployed to Cloud Run — **held until the live testing window is over**;
+      code is committed and the next deploy picks it up
 
-- [ ] Give the Shot Agent a provider call in `runTask`, following the Intake Agent's
-      pattern in `lib/agents/intake.js`: prompt → schema validation → degrade to the
-      heuristic on any failure
-- [ ] Keep the heuristic as the fallback — the offline `file://` path and the
-      no-key path both depend on it
-
-Do this **after** deployment is working. It improves how the output reads; it does
-not change whether the project satisfies the track.
+Planning / Asset / Prompt / Critic stay deterministic on purpose.
 
 ---
 

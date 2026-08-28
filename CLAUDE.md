@@ -32,8 +32,14 @@ fallback scenario plus the task and artifact *labels*.
 and an in-process worker (`lib/queue.js`) executes the tasks one at a time, saving
 after every state change so a poller sees the graph advance.
 
-**But only the Intake Agent can call a model.** The production agents are
-deterministic generators and the queue is in-process rather than Pub/Sub. Since
+**Two agents call a model: Intake and Shots.** The Intake Agent structures the
+brief; the Shot Agent (`lib/agents/shots.js`, added 2026-08-27) writes shot
+descriptions over the deterministic skeleton — timings, order, count, ids, and
+flags stay buildShotList's, the model supplies prose only, and it deliberately
+does not see the brief's constraints so the Critic still has real work.
+`STUDIOFLOW_SHOT_AGENT=off` forces the template descriptions. The remaining
+production agents are deterministic generators and the queue is in-process
+rather than Pub/Sub. Since
 2026-08-27 the run store is **mirrored to Firestore** (`lib/store-firestore.js`):
 the in-memory Map stays the synchronous source of truth, every write is mirrored
 in the background, and a Map miss rehydrates from Firestore — runs survive a
