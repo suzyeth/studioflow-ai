@@ -44,15 +44,27 @@ artifact.
 ### It shows you where it failed you
 
 Six agents run asynchronously — Intake, Planning, Shot, Asset, Prompt, Critic — and the
-Critic checks the generated artifacts against the stated constraints. Twelve checks,
+Critic checks the generated artifacts against the stated constraints. Fifteen checks,
 each reading real generated output rather than restating the brief back to you, and
 each staying silent when the brief gives it nothing to check. A brief that satisfies
 its own constraints produces an empty review queue.
 
-The design decision that makes this real: **the Shot Agent deliberately does not read
-the constraints on its first pass.** It lays out a standard narrative structure. If it
-satisfied every constraint up front, the Critic would find nothing and the review gate
-would be decorative. The first pass has to be able to be wrong.
+The design decision that makes this real: **the Shot Agent deliberately does not see
+the constraints.** Gemini writes its shot descriptions over a fixed, deterministic
+skeleton — it cannot move a timing or drop a shot, and it is not shown what the brief
+forbids or requires. If it satisfied every constraint up front, the Critic would find
+nothing and the review gate would be decorative. The first pass has to be able to be
+wrong, and with a real model writing real prose, it genuinely is.
+
+### And once you approve, it renders
+
+After — and only after — every review item is closed, the packet's hero shot can be
+rendered into an 8-second clip with **Veo on Vertex AI**. The prompt is the packet's
+own hero-shot entry, and the negative prompt is the packet's shared negative prompt:
+the render inherits the brief's prohibitions through the artifact a human just
+reviewed. One capped clip per run, strictly downstream of the human gate — proof the
+packet drives real production, without letting the product collapse into a video
+generator.
 
 ### It carries your correction forward
 
@@ -73,26 +85,36 @@ answers not just what was produced but why, and who decided.
 
 ## How we built it — technologies
 
-- **Gemini 3.6 Flash**, called through the **Google GenAI SDK** (`@google/genai`),
-  with structured JSON output and schema validation before any model output is allowed
-  to become an artifact.
+- **Gemini 3.5 Flash-Lite** for the Intake and Shot Agents, called through the
+  **Google GenAI SDK** (`@google/genai`), with structured JSON output and schema
+  validation before any model output is allowed to become an artifact. The model was
+  chosen by measuring three candidates against this key, not by picking the newest.
+  Transient 5xx responses are retried with backoff — the free tier sheds load from
+  cloud egress IPs, which only a deployed service ever sees.
+- **Veo 3.1 Fast on Vertex AI** renders the approved hero shot — REST through the
+  metadata-server token, one capped clip per run, downstream of the human gate.
 - **Cloud Run** for the service, built by **Cloud Build** from the repository
   Dockerfile. **Secret Manager** holds the API key.
+- **Firestore** mirrors every run: the in-memory store stays the synchronous source
+  of truth, every write is mirrored in the background, and a poll that misses the map
+  rehydrates from Firestore — runs survive restarts, verified live by killing the
+  instance and polling the same trace.
 - **Cloud Logging**, correlated by a `trace_id` carried on every task, artifact and
   audit event.
-- **Node.js 24**, and deliberately nothing else. `@google/genai` is the only runtime
-  dependency in the project. The frontend is plain HTML, CSS and JavaScript with no
-  build step, which is what lets the same agent code run in the browser from `file://`
-  and on the server — one implementation, two runtimes, no drift.
-- Tests are four plain-`assert` suites, no framework.
+- **Node.js 24**, and deliberately little else. `@google/genai` is the only runtime
+  dependency in the project — Firestore and Veo are hand-rolled REST over the built-in
+  fetch. The frontend is plain HTML, CSS and JavaScript with no build step, which is
+  what lets the same agent code run in the browser from `file://` and on the server —
+  one implementation, two runtimes, no drift.
+- Tests are six plain-`assert` suites, no framework — including one that drives the
+  real HTTP routes against a stubbed Vertex AI.
 
-**What is not built, stated plainly:** only the Intake Agent calls a model — Planning,
-Shot, Asset, Prompt and Critic are deterministic generators, which is why the generated
-prose reads as structure rather than as writing. The job queue is in-process rather
-than Pub/Sub, and the run store is an in-memory map, so nothing survives a restart.
-Firestore is designed for but not wired up. The architecture diagram draws these dashed
-for exactly this reason. Every artifact carries a `generated_by` field so its
-provenance is visible rather than implied.
+**What is not built, stated plainly:** Planning, Asset, Prompt and Critic are
+deterministic generators on purpose — the Critic's checks must be exact, not
+plausible. The job queue is in-process rather than Pub/Sub (drawn dashed in the
+architecture diagram for exactly this reason). Every artifact carries a
+`generated_by` field so its provenance — model or derived — is visible rather than
+implied.
 
 ## Data sources
 
