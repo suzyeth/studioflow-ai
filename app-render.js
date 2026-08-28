@@ -187,6 +187,7 @@ function renderRenderPanel() {
     nodes.renderStatus.textContent = `Hero shot (${escapeHtml(render.timecode || "")}) rendered by ${escapeHtml(render.model || "Veo")}, inheriting the packet's negative prompts.`;
     nodes.renderVideo.src = `/api/workflow/${encodeURIComponent(state.traceId)}/render/video`;
     nodes.renderVideo.hidden = false;
+    renderAuditVerdicts(render.audit);
     return;
   }
   if (render.status === "filtered") {
@@ -196,6 +197,38 @@ function renderRenderPanel() {
   }
   nodes.renderBtn.hidden = false;
   nodes.renderStatus.textContent = `Rendering failed: ${escapeHtml(render.error || "unknown error")}. You can try again.`;
+}
+
+// The Render Critic's verdicts, under the clip. Advisory annotations for the
+// human — a fail marks the clip, it does not remove it. A skipped audit says
+// so instead of pretending the clip was checked.
+function renderAuditVerdicts(audit) {
+  nodes.renderAudit.hidden = true;
+  if (!audit) return;
+
+  if (audit.status !== "done") {
+    nodes.renderAudit.innerHTML = `<p class="render-audit-skipped">Clip not audited: ${escapeHtml(audit.reason || "unknown reason")}</p>`;
+    nodes.renderAudit.hidden = false;
+    return;
+  }
+
+  const MARKS = { pass: "✓", fail: "✗", cannot_tell: "?" };
+  nodes.renderAudit.innerHTML = `
+    <p class="render-audit-title">Render Critic — the clip against the brief's own checks</p>
+    ${audit.verdicts
+      .map(
+        (entry) => `
+          <div class="render-verdict render-verdict-${escapeHtml(entry.verdict)}">
+            <span class="render-verdict-mark">${MARKS[entry.verdict] || "?"}</span>
+            <div>
+              <div class="render-verdict-check">${escapeHtml(entry.check)}</div>
+              <div class="render-verdict-evidence">${escapeHtml(entry.evidence)}</div>
+            </div>
+          </div>`,
+      )
+      .join("")}
+  `;
+  nodes.renderAudit.hidden = false;
 }
 
 function setStatus(label) {

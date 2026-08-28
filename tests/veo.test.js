@@ -10,6 +10,8 @@ const http = require("http");
 const path = require("path");
 const { spawn } = require("child_process");
 const { createVeoRenderer } = require("../lib/veo");
+const { createGeminiProvider } = require("../lib/llm");
+const { runRenderCritic } = require("../lib/agents/render-critic");
 
 const PORT = 4198;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -98,16 +100,86 @@ async function runToSettled(briefText) {
 }
 
 (async () => {
-  // --- the stub: token endpoint + Vertex predictLongRunning/fetchPredictOperation
+  // --- the stub: one server plays the metadata token endpoint, Vertex (Veo),
+  // and the Gemini API (intake, shots, and the Render Critic's video call).
   let started = 0;
   let polls = 0;
   let lastStartBody = null;
+  let lastVideoCall = null;
   const stub = await listen(async (req, res) => {
     if (req.url === "/token") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ access_token: "t0k3n", expires_in: 3600 }));
       return;
     }
+
+    // The Gemini API side — authenticated by header, not by bearer token.
+    if (req.url.includes(":generateContent")) {
+      assert.equal(req.headers["x-goog-api-key"], "test-key");
+      const body = JSON.parse(await readBody(req));
+      const parts = body.contents[0].parts;
+      const system = (body.systemInstruction?.parts || []).map((part) => part.text).join("");
+      const userText = parts.filter((part) => part.text).map((part) => part.text).join("\n");
+      const videoPart = parts.find((part) => part.inlineData);
+
+      let payload;
+      if (videoPart) {
+        lastVideoCall = videoPart.inlineData;
+        const count = Number((userText.match(/Exactly (\d+) verdict/) || [])[1] || 0);
+        payload = {
+          verdicts: Array.from({ length: count }, (_, index) => ({
+            check: `paraphrased check ${index}`,
+            verdict: index === 0 ? "pass" : "cannot_tell",
+            evidence: `Saw item ${index} in the clip.`,
+          })),
+        };
+      } else if (/Shot Agent/.test(system)) {
+        const ids = [...userText.matchAll(/- (shot_\d+) \(/g)].map((m) => m[1]);
+        payload = {
+          descriptions: Object.fromEntries(ids.map((id, i) => [id, `Stub frame ${i + 1}`])),
+        };
+      } else if (/Tokyo night market/.test(userText)) {
+        payload = {
+          structured_brief: {
+            goal: "A 30-second launch film for a premium canned coffee brand entering the Tokyo night market",
+            audience: "young urban professionals",
+            platform: "Instagram Reels",
+            duration_seconds: 30,
+            style: ["Neon realism"],
+            constraints: [
+              "Show the product in the first 5 seconds",
+              "avoid health claims",
+              "include a clear CTA",
+              "deliver for Instagram Reels",
+            ],
+            success_criteria: [],
+          },
+          clarifying_questions: [],
+        };
+      } else {
+        payload = {
+          structured_brief: {
+            goal: "A 20-second teaser for a coffee grinder",
+            audience: "home baristas",
+            platform: "TikTok",
+            duration_seconds: 20,
+            style: ["vibrant"],
+            constraints: [],
+            success_criteria: [],
+          },
+          clarifying_questions: [],
+        };
+      }
+
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ text: JSON.stringify(payload) }] } }],
+        }),
+      );
+      return;
+    }
+
     assert.equal(req.headers.authorization, "Bearer t0k3n", "every Vertex call carries the token");
 
     if (req.url.endsWith(":predictLongRunning")) {
@@ -163,6 +235,53 @@ async function runToSettled(briefText) {
   assert.equal(finished.done, true);
   assert.ok(finished.video.equals(FAKE_VIDEO), "the clip round-trips through base64");
 
+  // --- the Render Critic unit behaviour --------------------------------------
+  // The provider's video call carries the clip inline.
+  const videoProvider = createGeminiProvider({
+    apiKey: "test-key",
+    model: "gemini-stub",
+    timeoutMs: 5000,
+    baseUrl: stub.baseUrl,
+    retryDelayMs: 0,
+  });
+  const clip = Buffer.from("tiny-clip-bytes");
+  const unitAudit = await runRenderCritic(
+    { video: clip, mimeType: "video/mp4", constraints: ["no dogs"], subject: "a kettle" },
+    { provider: videoProvider },
+  );
+  assert.equal(unitAudit.status, "done");
+  assert.equal(unitAudit.verdicts.length, 2, "subject check plus one constraint");
+  assert.equal(lastVideoCall.data, clip.toString("base64"), "the clip travelled inline");
+  assert.equal(lastVideoCall.mimeType, "video/mp4");
+  assert.match(
+    unitAudit.verdicts[0].check,
+    /a kettle/,
+    "the authoritative check text is ours — the model's paraphrase never reaches a human",
+  );
+  assert.equal(unitAudit.verdicts[1].check, "no dogs");
+
+  // A provider that cannot watch video skips honestly instead of guessing.
+  const blind = await runRenderCritic(
+    { video: clip, constraints: [], subject: "x" },
+    { provider: { name: "local", async generateJson() {} } },
+  );
+  assert.equal(blind.status, "skipped");
+  assert.match(blind.reason, /cannot watch video/);
+
+  // A verdict-count mismatch is a schema failure, and schema failures skip.
+  const miscounting = {
+    name: "gemini",
+    async generateJsonFromVideo() {
+      return { verdicts: [{ check: "only one", verdict: "pass", evidence: "e" }] };
+    },
+  };
+  const mismatched = await runRenderCritic(
+    { video: clip, constraints: ["a", "b"], subject: "x" },
+    { provider: miscounting },
+  );
+  assert.equal(mismatched.status, "skipped");
+  assert.match(mismatched.reason, /schema validation failed/);
+
   // --- the routes, end to end ------------------------------------------------
   polls = 0; // reset so the server's first poll sees "not done" again
   const server = await startServer({
@@ -170,6 +289,10 @@ async function runToSettled(briefText) {
     VEO_BASE_URL: stub.baseUrl,
     VEO_TOKEN_URL: `${stub.baseUrl}/token`,
     STUDIOFLOW_RENDER_CAP: "2",
+    GEMINI_API_KEY: "test-key",
+    GEMINI_BASE_URL: stub.baseUrl,
+    GEMINI_MODEL: "gemini-stub",
+    STUDIOFLOW_LLM_RETRIES: "0",
   });
 
   try {
@@ -203,6 +326,19 @@ async function runToSettled(briefText) {
     const second = await api("GET", `/api/workflow/${approved.trace_id}/render`);
     assert.equal(second.body.status, "done");
 
+    // The Render Critic watched the finished clip against the brief's checks.
+    assert.equal(second.body.audit.status, "done");
+    assert.equal(
+      second.body.audit.verdicts.length,
+      1,
+      "a constraint-free brief still gets the subject-visibility check",
+    );
+    assert.match(second.body.audit.verdicts[0].check, /The subject/);
+    assert.ok(
+      !/paraphrased check/.test(second.body.audit.verdicts[0].check),
+      "the model's paraphrase never replaces the authoritative check text",
+    );
+
     const video = await fetch(`${BASE}/api/workflow/${approved.trace_id}/render/video`);
     assert.equal(video.status, 200);
     assert.equal(video.headers.get("content-type"), "video/mp4");
@@ -217,6 +353,15 @@ async function runToSettled(briefText) {
     );
     assert.ok(
       withRender.body.audit_events.some((event) => event.event_type === "render_completed"),
+    );
+    assert.ok(
+      withRender.body.audit_events.some((event) => event.event_type === "render_audited"),
+      "the clip audit lands in the same trail as everything else",
+    );
+    assert.equal(
+      withRender.body.artifacts.find((a) => a.type === "shots").generated_by,
+      "gemini",
+      "the stubbed model wrote the shot descriptions end to end",
     );
 
     // The negative prompt reached Veo from the packet's own prohibitions.

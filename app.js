@@ -50,6 +50,7 @@ const nodes = {
   renderBtn: document.getElementById("renderBtn"),
   renderStatus: document.getElementById("renderStatus"),
   renderVideo: document.getElementById("renderVideo"),
+  renderAudit: document.getElementById("renderAudit"),
 };
 
 function nowLabel() {

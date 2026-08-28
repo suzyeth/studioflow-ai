@@ -14,6 +14,7 @@ const { createProvider } = require("./lib/llm");
 const { createJobQueue } = require("./lib/queue");
 const { createFirestoreMirror, withMirror } = require("./lib/store-firestore");
 const { createVeoRenderer } = require("./lib/veo");
+const { runRenderCritic } = require("./lib/agents/render-critic");
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
@@ -370,15 +371,27 @@ async function handleApi(req, res, pathname) {
       if (result.video) {
         cacheVideo(run.trace_id, { video: result.video, mimeType: result.mimeType });
       }
-      const updated = runStore.update(run.trace_id, (current) => ({
-        ...current,
-        render: { ...current.render, status, finished_at: new Date().toISOString() },
-        audit_events: [
-          ...current.audit_events,
+
+      // The Render Critic closes the loop: the finished clip is judged against
+      // the brief's own constraints by a model that can watch it. Advisory —
+      // it annotates the clip for the human, never blocks it — and any failure
+      // reports the audit as skipped rather than inventing verdicts.
+      let audit = null;
+      if (status === "done" && result.video) {
+        audit = await runRenderCritic(
           {
-            id: `audit_${current.audit_events.length + 1}`,
-            trace_id: current.trace_id,
-            created_at: new Date().toISOString(),
+            video: result.video,
+            mimeType: result.mimeType,
+            constraints: run.brief?.structured_brief?.constraints || [],
+            subject: latestArtifact(run, "shots")?.data?.subject,
+          },
+          { provider },
+        );
+      }
+
+      const updated = runStore.update(run.trace_id, (current) => {
+        const events = [
+          {
             actor_type: "agent",
             actor_id: "render_agent",
             event_type: status === "done" ? "render_completed" : "render_filtered",
@@ -387,10 +400,39 @@ async function handleApi(req, res, pathname) {
                 ? "Render Agent delivered the hero shot clip."
                 : "Veo's safety filter removed the clip; the packet stands on its own.",
           },
-        ],
-      }));
+        ];
+        if (audit) {
+          events.push({
+            actor_type: "agent",
+            actor_id: "render_critic",
+            event_type: audit.status === "done" ? "render_audited" : "render_audit_skipped",
+            message:
+              audit.status === "done"
+                ? `Render Critic watched the clip against ${audit.verdicts.length} check(s): ${audit.verdicts.filter((v) => v.verdict === "pass").length} pass, ${audit.verdicts.filter((v) => v.verdict === "fail").length} fail, ${audit.verdicts.filter((v) => v.verdict === "cannot_tell").length} cannot tell.`
+                : `Render Critic could not audit the clip (${audit.reason}).`,
+          });
+        }
+        return {
+          ...current,
+          render: {
+            ...current.render,
+            status,
+            audit,
+            finished_at: new Date().toISOString(),
+          },
+          audit_events: [
+            ...current.audit_events,
+            ...events.map((event, index) => ({
+              id: `audit_${current.audit_events.length + 1 + index}`,
+              trace_id: current.trace_id,
+              created_at: new Date().toISOString(),
+              ...event,
+            })),
+          ],
+        };
+      });
 
-      sendJson(res, 200, updated ? updated.render : { ...run.render, status });
+      sendJson(res, 200, updated ? updated.render : { ...run.render, status, audit });
     } catch (error) {
       sendJson(res, 502, { error: error.message });
     }

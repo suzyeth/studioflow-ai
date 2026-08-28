@@ -549,3 +549,55 @@ textarea {
   border: 1px solid var(--border, #30363d);
   background: #000;
 }
+
+/* Render Critic verdicts under the clip */
+.render-audit {
+  margin-top: 14px;
+  max-width: 460px;
+}
+
+.render-audit-title {
+  color: var(--muted, #8b949e);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.render-verdict {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.render-verdict-mark {
+  font-weight: 700;
+  width: 1.1em;
+  text-align: center;
+}
+
+.render-verdict-pass .render-verdict-mark { color: #7ee787; }
+.render-verdict-fail .render-verdict-mark { color: #ff9492; }
+.render-verdict-cannot_tell .render-verdict-mark { color: #d29922; }
+
+.render-verdict-check {
+  font-size: 0.88rem;
+  color: var(--text, #e6edf3);
+}
+
+.render-verdict-evidence {
+  font-size: 0.8rem;
+  color: var(--muted, #8b949e);
+  margin-top: 2px;
+}
+
+.render-audit-skipped {
+  color: var(--muted, #8b949e);
+  font-size: 0.85rem;
+  margin: 0;
+}
