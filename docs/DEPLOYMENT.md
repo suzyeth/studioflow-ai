@@ -54,6 +54,26 @@ gcloud run services update studioflow-ai --region us-central1 --min-instances=1
 gcloud run services update studioflow-ai --region us-central1 --min-instances=0
 ```
 
+### The Veo render (2026-08-28)
+
+The approved packet's hero shot can be rendered into one 8-second clip with
+**`veo-3.1-fast-generate-001`** on Vertex AI (`lib/veo.js` — REST via the
+metadata token, zero new dependencies). Design constraints, all deliberate:
+
+- **Downstream of the human gate**: `POST /api/workflow/:id/render` answers 409
+  until every review item is closed. Nothing renders before a human approved.
+- **One clip per run**, and a hard per-instance cap (`STUDIOFLOW_RENDER_CAP`,
+  default 10) because the URL is public and every render is billed (~£1–2).
+- The prompt is the packet's own hero-shot prompt and the **negative prompt is
+  the packet's shared negative prompt** — the render inherits the brief's
+  prohibitions through the artifact a human just reviewed.
+- The operation name is saved on the run (Firestore-mirrored), so a finished
+  render survives a restart; the video route re-fetches it on a cache miss.
+- `STUDIOFLOW_VEO=off` disables the feature; `/api/health` reports `render`.
+
+Requires `roles/aiplatform.user` on the runtime service account (granted).
+Cost note: hitting the cap on demo day costs at most cap × ~£2.
+
 ### Model choice was measured, not assumed
 
 `gemini-3.5-flash-lite`, and the code default rather than a Cloud Run env var, so

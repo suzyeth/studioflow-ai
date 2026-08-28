@@ -89,9 +89,9 @@
   <text x="266" y="572" fill="#e6edf3" font-size="14" font-weight="600">Planning</text>
   <text x="266" y="590" fill="#8b949e" font-size="11">deterministic</text>
 
-  <rect x="446" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
+  <rect x="446" y="550" width="176" height="52" rx="7" fill="#1b2740" stroke="#4c7bd1"/>
   <text x="460" y="572" fill="#e6edf3" font-size="14" font-weight="600">Shot</text>
-  <text x="460" y="590" fill="#8b949e" font-size="11">deterministic</text>
+  <text x="460" y="590" fill="#79c0ff" font-size="11">calls a model · fixed skeleton</text>
 
   <rect x="640" y="550" width="176" height="52" rx="7" fill="#1c2230" stroke="#3d4757"/>
   <text x="654" y="572" fill="#e6edf3" font-size="14" font-weight="600">Asset</text>
@@ -113,7 +113,7 @@
 
   <rect x="58" y="616" width="1164" height="52" rx="7" fill="#231a1a" stroke="#6e4040"/>
   <text x="74" y="638" fill="#ff9492" font-size="13" font-weight="600">Human review gate</text>
-  <text x="74" y="657" fill="#8b949e" font-size="12">Critic findings become review items. Approve closes one; Revise merges the finding's `enforce` object and reruns only the tasks it names — versioning the affected artifacts and appending an audit event each time.</text>
+  <text x="74" y="657" fill="#8b949e" font-size="12">Critic findings become review items. Approve closes one; Revise merges the finding's `enforce` and reruns the tasks it names. Once approved, the hero shot can render with Veo (Vertex AI) — strictly downstream of this gate, one capped clip per run.</text>
 
   <!-- ============================ MODEL SEAM ============================ -->
   <line x1="146" y1="686" x2="146" y2="726" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
@@ -131,7 +131,7 @@
 
   <rect x="480" y="734" width="330" height="122" rx="10" fill="#141d2e" stroke="#4c7bd1"/>
   <text x="498" y="760" fill="#79c0ff" font-size="13" font-weight="600" letter-spacing="1.2">GOOGLE GEMINI API</text>
-  <text x="498" y="786" fill="#e6edf3" font-size="15" font-weight="600">gemini-3.6-flash</text>
+  <text x="498" y="786" fill="#e6edf3" font-size="15" font-weight="600">gemini-3.5-flash-lite · veo-3.1-fast</text>
   <text x="498" y="808" fill="#8b949e" font-size="12">via @google/genai — a Google agent</text>
   <text x="498" y="826" fill="#8b949e" font-size="12">framework, as the rules require</text>
   <text x="498" y="846" fill="#8b949e" font-size="12">structured JSON, temperature 0</text>

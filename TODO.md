@@ -180,6 +180,18 @@ Planning / Asset / Prompt / Critic stay deterministic on purpose.
 
 ---
 
+## 6. ~~Veo bonus~~ — DONE 2026-08-28
+
+The rules' bonus list names Veo. `lib/veo.js` renders the **approved** packet's
+hero shot into one 8s clip on Vertex AI (`veo-3.1-fast-generate-001`) — strictly
+downstream of the human gate (409 before approval), one clip per run, hard
+per-instance cost cap, negative prompts inherited from the packet. Details in
+`docs/DEPLOYMENT.md`. Probed and first clip generated 2026-08-28 via Cloud Build
+(the local network cannot reach `*-aiplatform.googleapis.com` — Google's bot
+filter answers 417 there; Cloud Run and Cloud Build reach it fine).
+
+---
+
 ## Not blocked — can be done any time, no key or account needed
 
 - [ ] Add more Critic checks. This is the highest-value work available: each one
