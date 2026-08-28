@@ -199,22 +199,23 @@ function renderRenderPanel() {
   nodes.renderStatus.textContent = `Rendering failed: ${escapeHtml(render.error || "unknown error")}. You can try again.`;
 }
 
-// The Render Critic's verdicts, under the clip. Advisory annotations for the
-// human — a fail marks the clip, it does not remove it. A skipped audit says
-// so instead of pretending the clip was checked.
-function renderAuditVerdicts(audit) {
-  nodes.renderAudit.hidden = true;
+// The Render Critic's verdicts. Advisory annotations for the human — a fail
+// marks the clip, it does not remove it. A skipped audit says so instead of
+// pretending the clip was checked. Shared by the rendered-clip panel and the
+// delivered-cut panel, which must not drift apart.
+function renderVerdictList(container, audit, title) {
+  container.hidden = true;
   if (!audit) return;
 
   if (audit.status !== "done") {
-    nodes.renderAudit.innerHTML = `<p class="render-audit-skipped">Clip not audited: ${escapeHtml(audit.reason || "unknown reason")}</p>`;
-    nodes.renderAudit.hidden = false;
+    container.innerHTML = `<p class="render-audit-skipped">Not audited: ${escapeHtml(audit.reason || "unknown reason")}</p>`;
+    container.hidden = false;
     return;
   }
 
   const MARKS = { pass: "✓", fail: "✗", cannot_tell: "?" };
-  nodes.renderAudit.innerHTML = `
-    <p class="render-audit-title">Render Critic — the clip against the brief's own checks</p>
+  container.innerHTML = `
+    <p class="render-audit-title">${escapeHtml(title)}</p>
     ${audit.verdicts
       .map(
         (entry) => `
@@ -228,7 +229,42 @@ function renderAuditVerdicts(audit) {
       )
       .join("")}
   `;
-  nodes.renderAudit.hidden = false;
+  container.hidden = false;
+}
+
+function renderAuditVerdicts(audit) {
+  renderVerdictList(
+    nodes.renderAudit,
+    audit,
+    "Render Critic — the clip against the brief's own checks",
+  );
+}
+
+// The delivered-cut panel: upload the editor's final video, get the same
+// verdicts. API path only — the offline page explains instead of offering.
+function renderUploadPanel() {
+  const apiPath = Boolean(state.traceId);
+
+  nodes.uploadBtn.disabled = state.uploading || !apiPath;
+  nodes.uploadInput.disabled = state.uploading;
+
+  if (!apiPath) {
+    nodes.uploadStatus.textContent =
+      "Auditing a delivered cut runs on the deployed service (a paid multimodal call) — open the Cloud Run URL and run a workflow first.";
+    renderVerdictList(nodes.uploadAudit, null, "");
+    return;
+  }
+  if (state.uploading) {
+    nodes.uploadStatus.textContent = "The Render Critic is watching the cut… typically 5–20 seconds.";
+    return;
+  }
+  nodes.uploadStatus.textContent =
+    "The editor sent the final cut — did it survive the brief? Upload the video and the Render Critic judges it against this brief's own constraints.";
+  renderVerdictList(
+    nodes.uploadAudit,
+    state.uploadedAudit,
+    "Render Critic — the delivered cut against the brief's own checks",
+  );
 }
 
 function setStatus(label) {
@@ -312,4 +348,5 @@ function renderAll() {
   renderReviews();
   renderPacket();
   renderRenderPanel();
+  renderUploadPanel();
 }

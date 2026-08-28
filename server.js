@@ -53,6 +53,12 @@ const veo =
       })
     : null;
 
+// Delivered-cut audits are metered like renders: the URL is public and every
+// audit is a billed multimodal call.
+let auditsUsed = 0;
+const AUDIT_CAP = Number(process.env.STUDIOFLOW_AUDIT_CAP || 20);
+const AUDIT_MAX_BYTES = 15_000_000;
+
 // Decoded clips, keyed by trace id. A restart loses this cache but not the
 // render: the operation name lives on the run (mirrored to Firestore), so the
 // video route re-fetches the finished operation and refills the cache.
@@ -128,6 +134,27 @@ function readRequestBody(req) {
       }
     });
     req.on("end", () => resolve(body));
+    req.on("error", reject);
+  });
+}
+
+// Binary body reader for the delivered-cut audit. The limit tracks what a
+// single inline Gemini request can carry — an over-limit upload is refused
+// with the reason, not truncated.
+function readBinaryBody(req, maxBytes) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > maxBytes) {
+        reject(new Error(`Video too large — the audit accepts up to ${Math.round(maxBytes / 1_000_000)}MB`));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
     req.on("error", reject);
   });
 }
@@ -435,6 +462,83 @@ async function handleApi(req, res, pathname) {
       sendJson(res, 200, updated ? updated.render : { ...run.render, status, audit });
     } catch (error) {
       sendJson(res, 502, { error: error.message });
+    }
+    return;
+  }
+
+  // Audit a delivered cut: the user uploads the finished video and the Render
+  // Critic judges it against the brief's own constraints — the same check
+  // list that governed the plan now judges the delivery. This is the answer
+  // to "the editor sent the final cut; did it survive the brief?"
+  const auditMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/audit$/);
+  if (req.method === "POST" && auditMatch) {
+    try {
+      const contentType = String(req.headers["content-type"] || "");
+      if (!contentType.startsWith("video/")) {
+        sendJson(res, 415, { error: "Send the video itself, with a video/* content type" });
+        return;
+      }
+      const video = await readBinaryBody(req, AUDIT_MAX_BYTES);
+      if (video.length === 0) {
+        sendJson(res, 400, { error: "The uploaded video is empty" });
+        return;
+      }
+
+      const run = await loadRun(auditMatch[1]);
+      if (!run) {
+        sendJson(res, 404, { error: "Workflow run not found" });
+        return;
+      }
+      if (!run.brief?.structured_brief) {
+        sendJson(res, 409, { error: "Run the workflow first — the audit needs the brief's constraints" });
+        return;
+      }
+      if (auditsUsed >= AUDIT_CAP) {
+        sendJson(res, 429, { error: `Audit budget spent (${AUDIT_CAP} per instance)` });
+        return;
+      }
+
+      auditsUsed += 1;
+      const audit = await runRenderCritic(
+        {
+          video,
+          mimeType: contentType.split(";")[0],
+          constraints: run.brief.structured_brief.constraints || [],
+          subject: latestArtifact(run, "shots")?.data?.subject,
+        },
+        { provider },
+      );
+
+      const record = {
+        ...audit,
+        source: "uploaded",
+        size_bytes: video.length,
+        at: new Date().toISOString(),
+      };
+      runStore.update(run.trace_id, (current) => ({
+        ...current,
+        uploaded_audit: record,
+        audit_events: [
+          ...current.audit_events,
+          {
+            id: `audit_${current.audit_events.length + 1}`,
+            trace_id: current.trace_id,
+            created_at: new Date().toISOString(),
+            actor_type: "agent",
+            actor_id: "render_critic",
+            event_type: audit.status === "done" ? "delivery_audited" : "delivery_audit_skipped",
+            message:
+              audit.status === "done"
+                ? `Render Critic watched a delivered cut (${Math.round(video.length / 1_000_000)}MB) against ${audit.verdicts.length} check(s): ${audit.verdicts.filter((v) => v.verdict === "pass").length} pass, ${audit.verdicts.filter((v) => v.verdict === "fail").length} fail, ${audit.verdicts.filter((v) => v.verdict === "cannot_tell").length} cannot tell.`
+                : `Render Critic could not audit the delivered cut (${audit.reason}).`,
+          },
+        ],
+      }));
+
+      sendJson(res, audit.status === "done" ? 200 : 502, record);
+    } catch (error) {
+      const status = /too large/i.test(error.message) ? 413 : 400;
+      sendJson(res, status, { error: error.message });
     }
     return;
   }

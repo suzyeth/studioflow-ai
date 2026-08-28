@@ -601,3 +601,17 @@ textarea {
   font-size: 0.85rem;
   margin: 0;
 }
+
+.upload-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.upload-row input[type="file"] {
+  color: var(--muted, #8b949e);
+  font-size: 0.85rem;
+  max-width: 320px;
+}

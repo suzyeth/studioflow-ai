@@ -364,6 +364,40 @@ async function runToSettled(briefText) {
       "the stubbed model wrote the shot descriptions end to end",
     );
 
+    // --- the delivered-cut audit ---------------------------------------------
+    // Uploading a finished video gets the same verdicts against the same brief.
+    const cut = Buffer.from("DELIVERED-CUT-BYTES");
+    const uploaded = await fetch(`${BASE}/api/workflow/${approved.trace_id}/audit`, {
+      method: "POST",
+      headers: { "content-type": "video/mp4" },
+      body: cut,
+    });
+    assert.equal(uploaded.status, 200);
+    const uploadedAudit = await uploaded.json();
+    assert.equal(uploadedAudit.status, "done");
+    assert.equal(uploadedAudit.source, "uploaded");
+    assert.equal(uploadedAudit.size_bytes, cut.length);
+    assert.equal(
+      lastVideoCall.data,
+      cut.toString("base64"),
+      "the uploaded bytes are what the model watched",
+    );
+
+    // A non-video upload is refused before any model call.
+    const notVideo = await fetch(`${BASE}/api/workflow/${approved.trace_id}/audit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(notVideo.status, 415);
+
+    // The audit lands on the run and in the trail, like everything else.
+    const audited = await api("GET", `/api/workflow/${approved.trace_id}`);
+    assert.equal(audited.body.uploaded_audit.status, "done");
+    assert.ok(
+      audited.body.audit_events.some((event) => event.event_type === "delivery_audited"),
+    );
+
     // The negative prompt reached Veo from the packet's own prohibitions.
     assert.match(
       startedRender.body.negative_prompt ?? "",

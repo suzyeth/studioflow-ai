@@ -62,6 +62,8 @@ const STUDIOFLOW_VIEW = {
       parsedBy: apiRun.brief?.parsed_by || null,
       // Hero-shot render state, when the deployment supports it.
       render: apiRun.render || null,
+      // The latest delivered-cut audit, if one was uploaded.
+      uploadedAudit: apiRun.uploaded_audit || null,
       traceId: apiRun.trace_id,
     };
   },

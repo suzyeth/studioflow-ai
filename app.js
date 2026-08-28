@@ -25,6 +25,8 @@ const state = {
   // which is what renderRenderPanel uses to explain instead of offering.
   render: null,
   rendering: false,
+  uploadedAudit: null,
+  uploading: false,
 };
 
 const nodes = {
@@ -51,6 +53,10 @@ const nodes = {
   renderStatus: document.getElementById("renderStatus"),
   renderVideo: document.getElementById("renderVideo"),
   renderAudit: document.getElementById("renderAudit"),
+  uploadInput: document.getElementById("uploadInput"),
+  uploadBtn: document.getElementById("uploadBtn"),
+  uploadStatus: document.getElementById("uploadStatus"),
+  uploadAudit: document.getElementById("uploadAudit"),
 };
 
 function nowLabel() {
@@ -106,8 +112,53 @@ function applyApiRun(apiRun) {
   state.briefFields = normalized.briefFields;
   state.clarifyingQuestions = normalized.clarifyingQuestions;
   state.render = normalized.render;
+  state.uploadedAudit = normalized.uploadedAudit;
   state.traceId = normalized.traceId;
   renderAll();
+}
+
+// Uploads a delivered cut and shows the Render Critic's verdicts. API path
+// only — auditing is a paid server-side multimodal call, so the offline path
+// explains rather than pretends.
+async function auditDeliveredCut() {
+  const file = nodes.uploadInput.files && nodes.uploadInput.files[0];
+  if (!file) {
+    addAudit("Pick a video file first.");
+    renderAudit();
+    return;
+  }
+  if (!state.traceId) {
+    addAudit("Auditing a delivered cut needs the deployed service — open the Cloud Run URL.");
+    renderAudit();
+    return;
+  }
+
+  state.uploading = true;
+  renderUploadPanel();
+  try {
+    const response = await fetch(`/api/workflow/${encodeURIComponent(state.traceId)}/audit`, {
+      method: "POST",
+      headers: { "content-type": file.type || "video/mp4" },
+      body: file,
+    });
+    const payload = await response.json();
+    if (!response.ok && !payload.status) {
+      throw new Error(payload.error || "Audit request failed");
+    }
+    state.uploadedAudit = payload;
+    addAudit(
+      payload.status === "done"
+        ? `Render Critic audited the delivered cut against ${payload.verdicts.length} check(s).`
+        : `Delivered-cut audit skipped: ${payload.reason}.`,
+    );
+  } catch (error) {
+    addAudit(`Delivered-cut audit failed: ${error.message}`);
+    state.uploadedAudit = { status: "skipped", reason: error.message };
+  } finally {
+    state.uploading = false;
+    renderUploadPanel();
+    renderAudit();
+  }
 }
 
 // Kicks off the hero-shot render and polls until Veo settles. API path only:
@@ -550,6 +601,7 @@ nodes.reviewQueue.addEventListener("click", (event) => {
 });
 
 nodes.renderBtn.addEventListener("click", startHeroRender);
+nodes.uploadBtn.addEventListener("click", auditDeliveredCut);
 
 nodes.copyPacketBtn.addEventListener("click", async () => {
   await navigator.clipboard.writeText(currentPacketMarkdown());

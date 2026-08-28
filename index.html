@@ -135,6 +135,23 @@
           <video id="renderVideo" class="render-video" controls hidden></video>
           <div id="renderAudit" class="render-audit" hidden></div>
         </section>
+        <section class="panel render-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Delivery Check</p>
+              <h2>Audit a Delivered Cut</h2>
+            </div>
+          </div>
+          <p id="uploadStatus" class="render-status">
+            The editor sent the final cut — did it survive the brief? Upload the video
+            and the Render Critic judges it against this brief's own constraints.
+          </p>
+          <div class="upload-row">
+            <input type="file" id="uploadInput" accept="video/*" />
+            <button class="ghost-button" id="uploadBtn">Audit with Gemini</button>
+          </div>
+          <div id="uploadAudit" class="render-audit" hidden></div>
+        </section>
       </section>
 
       <section class="view" id="proof">
