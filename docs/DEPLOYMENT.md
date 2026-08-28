@@ -70,6 +70,11 @@ metadata token, zero new dependencies). Design constraints, all deliberate:
 - The operation name is saved on the run (Firestore-mirrored), so a finished
   render survives a restart; the video route re-fetches it on a cache miss.
 - `STUDIOFLOW_VEO=off` disables the feature; `/api/health` reports `render`.
+- **The finished clip is audited** (2026-08-28): the Render Critic
+  (`lib/agents/render-critic.js`) feeds the clip to multimodal Gemini and judges
+  it against the brief's own constraints — three-state verdicts (pass / fail /
+  cannot_tell) shown under the player, recorded on the run and in the audit
+  trail. Advisory, never blocking; any failure reports the audit as skipped.
 
 Requires `roles/aiplatform.user` on the runtime service account (granted).
 Cost note: hitting the cap on demo day costs at most cap × ~£2.

@@ -66,6 +66,16 @@ reviewed. One capped clip per run, strictly downstream of the human gate — pro
 packet drives real production, without letting the product collapse into a video
 generator.
 
+And the finished clip is not taken on faith. A **Render Critic** — multimodal Gemini
+— watches it and judges it against the brief's own constraints, one verdict per
+check: pass, fail, or *cannot tell*, with the evidence it saw. The same discipline
+that governs the plan-level Critic governs the clip: verdicts are three-state because
+a confident wrong verdict is worse than an honest "not sure", the authoritative check
+text is the brief's (a model paraphrase never reaches the human), and any failure
+reports the audit as skipped rather than inventing results. The constraint chain now
+runs unbroken: brief → plan → checked plan → human approval → render → checked
+render.
+
 ### It carries your correction forward
 
 Each finding names the agents responsible and, where the fix is mechanical, the

@@ -113,7 +113,7 @@
 
   <rect x="58" y="616" width="1164" height="52" rx="7" fill="#231a1a" stroke="#6e4040"/>
   <text x="74" y="638" fill="#ff9492" font-size="13" font-weight="600">Human review gate</text>
-  <text x="74" y="657" fill="#8b949e" font-size="12">Critic findings become review items. Approve closes one; Revise merges the finding's `enforce` and reruns the tasks it names. Once approved, the hero shot can render with Veo (Vertex AI) — strictly downstream of this gate, one capped clip per run.</text>
+  <text x="74" y="657" fill="#8b949e" font-size="12">Critic findings become review items. Approve closes one; Revise merges the finding's `enforce` and reruns the tasks it names. Once approved, the hero shot renders with Veo (Vertex AI) — one capped clip per run — and the Render Critic (multimodal Gemini) judges the clip against the brief's own checks.</text>
 
   <!-- ============================ MODEL SEAM ============================ -->
   <line x1="146" y1="686" x2="146" y2="726" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)"/>
