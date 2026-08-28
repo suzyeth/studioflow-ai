@@ -13,6 +13,7 @@ const {
 const { createProvider } = require("./lib/llm");
 const { createJobQueue } = require("./lib/queue");
 const { createFirestoreMirror, withMirror } = require("./lib/store-firestore");
+const { createVeoRenderer } = require("./lib/veo");
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
@@ -34,6 +35,41 @@ const mirror = process.env.FIRESTORE_PROJECT
 
 const memoryStore = createRunStore();
 const runStore = withMirror(memoryStore, mirror);
+
+// The Veo renderer turns the approved packet's hero shot into one 8-second
+// clip. It needs a GCP project (Vertex AI billing) and is off without one;
+// STUDIOFLOW_VEO=off disables it explicitly. The cap is a hard cost ceiling —
+// the URL is public and every render is billed.
+const veoProject = process.env.VERTEX_PROJECT || process.env.FIRESTORE_PROJECT;
+const veo =
+  veoProject && process.env.STUDIOFLOW_VEO !== "off"
+    ? createVeoRenderer({
+        projectId: veoProject,
+        model: process.env.VEO_MODEL || undefined,
+        baseUrl: process.env.VEO_BASE_URL || undefined,
+        tokenUrl: process.env.VEO_TOKEN_URL || process.env.FIRESTORE_TOKEN_URL || undefined,
+        cap: Number(process.env.STUDIOFLOW_RENDER_CAP || 10),
+      })
+    : null;
+
+// Decoded clips, keyed by trace id. A restart loses this cache but not the
+// render: the operation name lives on the run (mirrored to Firestore), so the
+// video route re-fetches the finished operation and refills the cache.
+const videoCache = new Map();
+const VIDEO_CACHE_MAX = 5;
+
+function cacheVideo(traceId, entry) {
+  videoCache.delete(traceId);
+  videoCache.set(traceId, entry);
+  while (videoCache.size > VIDEO_CACHE_MAX) {
+    videoCache.delete(videoCache.keys().next().value);
+  }
+}
+
+function latestArtifact(run, type) {
+  const matching = run.artifacts.filter((artifact) => artifact.type === type);
+  return matching.length > 0 ? matching[matching.length - 1] : null;
+}
 
 // A run that fell out of the Map (restart, LRU eviction, another instance)
 // comes back from the mirror. Rehydration writes through memoryStore, not
@@ -118,6 +154,9 @@ async function handleApi(req, res, pathname) {
       store: mirror
         ? { mirror: "firestore", project: mirror.projectId, last_error: mirror.lastError }
         : { mirror: "none" },
+      render: veo
+        ? { enabled: true, model: veo.model, used: veo.used, cap: veo.cap }
+        : { enabled: false },
       step_delay_ms: STEP_DELAY_MS,
       time: new Date().toISOString(),
     });
@@ -214,6 +253,181 @@ async function handleApi(req, res, pathname) {
       sendJson(res, 202, queued);
     } catch (error) {
       sendJson(res, 400, { error: error.message });
+    }
+    return;
+  }
+
+  // Render the approved packet's hero shot with Veo. Deliberately downstream
+  // of the human gate: nothing renders until every review item is closed and
+  // the packet is ready. One render per run; the operation name is saved on
+  // the run (and mirrored), so the result survives a restart.
+  const renderMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/render$/);
+  if (req.method === "POST" && renderMatch) {
+    try {
+      if (!veo) {
+        sendJson(res, 503, { error: "Rendering is not configured on this deployment" });
+        return;
+      }
+      const run = await loadRun(renderMatch[1]);
+      if (!run) {
+        sendJson(res, 404, { error: "Workflow run not found" });
+        return;
+      }
+      if (!run.packet_ready) {
+        sendJson(res, 409, {
+          error: "Rendering follows approval — close the review items first",
+        });
+        return;
+      }
+      if (run.render && run.render.status !== "failed") {
+        sendJson(res, 200, run.render);
+        return;
+      }
+      if (veo.spent) {
+        sendJson(res, 429, { error: `Render budget spent (${veo.cap} per instance)` });
+        return;
+      }
+
+      const shots = latestArtifact(run, "shots");
+      const prompts = latestArtifact(run, "prompts");
+      const hero = shots?.data?.shots?.find((shot) => shot.is_hero);
+      const heroPrompt = prompts?.data?.prompts?.find(
+        (prompt) => prompt.shot_id === hero?.id,
+      );
+      if (!hero || !heroPrompt) {
+        sendJson(res, 422, {
+          error: "This run predates render support — run the workflow again",
+        });
+        return;
+      }
+
+      const negativePrompt = (prompts.data.shared_negative_prompt || []).join(", ");
+      const aspectRatio = shots.data.aspect_ratio?.includes("9:16") ? "9:16" : "16:9";
+
+      const operation = await veo.start({
+        prompt: heroPrompt.prompt,
+        negativePrompt: negativePrompt || undefined,
+        aspectRatio,
+      });
+
+      const render = {
+        status: "rendering",
+        model: veo.model,
+        shot_id: hero.id,
+        timecode: hero.timecode,
+        prompt: heroPrompt.prompt,
+        negative_prompt: negativePrompt || null,
+        operation,
+        started_at: new Date().toISOString(),
+      };
+      const updated = runStore.update(run.trace_id, (current) => ({
+        ...current,
+        render,
+        audit_events: [
+          ...current.audit_events,
+          {
+            id: `audit_${current.audit_events.length + 1}`,
+            trace_id: current.trace_id,
+            created_at: new Date().toISOString(),
+            actor_type: "agent",
+            actor_id: "render_agent",
+            event_type: "render_started",
+            message: `Render Agent sent the approved hero shot (${hero.timecode}) to ${veo.model}, inheriting ${prompts.data.shared_negative_prompt?.length || 0} negative prompt(s) from the brief.`,
+          },
+        ],
+      }));
+
+      sendJson(res, 202, updated ? updated.render : render);
+    } catch (error) {
+      sendJson(res, 502, { error: error.message });
+    }
+    return;
+  }
+
+  if (req.method === "GET" && renderMatch) {
+    try {
+      const run = await loadRun(renderMatch[1]);
+      if (!run) {
+        sendJson(res, 404, { error: "Workflow run not found" });
+        return;
+      }
+      if (!run.render) {
+        sendJson(res, 200, { status: "none", available: Boolean(veo && !veo.spent) });
+        return;
+      }
+      if (run.render.status !== "rendering" || !veo) {
+        sendJson(res, 200, run.render);
+        return;
+      }
+
+      const result = await veo.poll(run.render.operation);
+      if (!result.done) {
+        sendJson(res, 200, run.render);
+        return;
+      }
+
+      const status = result.filtered ? "filtered" : "done";
+      if (result.video) {
+        cacheVideo(run.trace_id, { video: result.video, mimeType: result.mimeType });
+      }
+      const updated = runStore.update(run.trace_id, (current) => ({
+        ...current,
+        render: { ...current.render, status, finished_at: new Date().toISOString() },
+        audit_events: [
+          ...current.audit_events,
+          {
+            id: `audit_${current.audit_events.length + 1}`,
+            trace_id: current.trace_id,
+            created_at: new Date().toISOString(),
+            actor_type: "agent",
+            actor_id: "render_agent",
+            event_type: status === "done" ? "render_completed" : "render_filtered",
+            message:
+              status === "done"
+                ? "Render Agent delivered the hero shot clip."
+                : "Veo's safety filter removed the clip; the packet stands on its own.",
+          },
+        ],
+      }));
+
+      sendJson(res, 200, updated ? updated.render : { ...run.render, status });
+    } catch (error) {
+      sendJson(res, 502, { error: error.message });
+    }
+    return;
+  }
+
+  const videoMatch = pathname.match(/^\/api\/workflow\/([^/]+)\/render\/video$/);
+  if (req.method === "GET" && videoMatch) {
+    try {
+      const traceId = videoMatch[1];
+      let entry = videoCache.get(traceId);
+
+      // Cache miss after a restart: the operation name on the (rehydrated) run
+      // still points at the finished render.
+      if (!entry && veo) {
+        const run = await loadRun(traceId);
+        if (run?.render?.operation && run.render.status === "done") {
+          const result = await veo.poll(run.render.operation);
+          if (result.done && result.video) {
+            entry = { video: result.video, mimeType: result.mimeType };
+            cacheVideo(traceId, entry);
+          }
+        }
+      }
+
+      if (!entry) {
+        sendJson(res, 404, { error: "No rendered video for this run" });
+        return;
+      }
+      res.writeHead(200, {
+        "content-type": entry.mimeType,
+        "content-length": entry.video.length,
+        "cache-control": "no-store",
+      });
+      res.end(entry.video);
+    } catch (error) {
+      sendJson(res, 502, { error: error.message });
     }
     return;
   }

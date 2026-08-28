@@ -21,6 +21,10 @@ const state = {
   local: null,
   running: false,
   traceId: null,
+  // Hero-shot render state from the server; stays null on the offline path,
+  // which is what renderRenderPanel uses to explain instead of offering.
+  render: null,
+  rendering: false,
 };
 
 const nodes = {
@@ -43,6 +47,9 @@ const nodes = {
   proofSource: document.getElementById("proofSource"),
   packetOutput: document.getElementById("packetOutput"),
   copyPacketBtn: document.getElementById("copyPacketBtn"),
+  renderBtn: document.getElementById("renderBtn"),
+  renderStatus: document.getElementById("renderStatus"),
+  renderVideo: document.getElementById("renderVideo"),
 };
 
 function nowLabel() {
@@ -97,8 +104,52 @@ function applyApiRun(apiRun) {
   state.metrics = normalized.metrics;
   state.briefFields = normalized.briefFields;
   state.clarifyingQuestions = normalized.clarifyingQuestions;
+  state.render = normalized.render;
   state.traceId = normalized.traceId;
   renderAll();
+}
+
+// Kicks off the hero-shot render and polls until Veo settles. API path only:
+// rendering is a paid server-side call, so the offline path explains rather
+// than pretends (renderRenderPanel handles the message).
+async function startHeroRender() {
+  if (!state.traceId || state.rendering) return;
+  state.rendering = true;
+  renderRenderPanel();
+
+  try {
+    const started = await fetch(`/api/workflow/${encodeURIComponent(state.traceId)}/render`, {
+      method: "POST",
+    });
+    const payload = await started.json();
+    if (!started.ok) {
+      throw new Error(payload.error || "Render request failed");
+    }
+    state.render = payload;
+    renderRenderPanel();
+
+    while (state.render && state.render.status === "rendering") {
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+      const poll = await fetch(`/api/workflow/${encodeURIComponent(state.traceId)}/render`, {
+        cache: "no-store",
+      });
+      if (!poll.ok) throw new Error("Render polling failed");
+      state.render = await poll.json();
+      renderRenderPanel();
+    }
+    addAudit(
+      state.render?.status === "done"
+        ? "Render Agent delivered the hero shot clip."
+        : `Render finished with status: ${state.render?.status}.`,
+    );
+  } catch (error) {
+    addAudit(`Rendering failed: ${error.message}`);
+    state.render = { ...(state.render || {}), status: "failed", error: error.message };
+  } finally {
+    state.rendering = false;
+    renderRenderPanel();
+    renderAudit();
+  }
 }
 
 async function fetchDemoData() {
@@ -496,6 +547,8 @@ nodes.reviewQueue.addEventListener("click", (event) => {
     approveReview(reviewId);
   }
 });
+
+nodes.renderBtn.addEventListener("click", startHeroRender);
 
 nodes.copyPacketBtn.addEventListener("click", async () => {
   await navigator.clipboard.writeText(currentPacketMarkdown());

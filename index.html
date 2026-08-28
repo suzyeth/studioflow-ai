@@ -120,6 +120,20 @@
           </div>
           <pre id="packetOutput" class="packet-output">Run the workflow to generate a production packet.</pre>
         </section>
+        <section class="panel render-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Downstream Proof</p>
+              <h2>Hero Shot Render</h2>
+            </div>
+            <button class="ghost-button" id="renderBtn" hidden>Render with Veo</button>
+          </div>
+          <p id="renderStatus" class="render-status">
+            Once the packet is approved, its hero shot can be rendered with Veo — the
+            prompt and negative prompts are the packet's own.
+          </p>
+          <video id="renderVideo" class="render-video" controls hidden></video>
+        </section>
       </section>
 
       <section class="view" id="proof">

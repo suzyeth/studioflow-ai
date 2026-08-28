@@ -60,6 +60,8 @@ const STUDIOFLOW_VIEW = {
       briefFields: apiRun.brief?.structured_fields || null,
       clarifyingQuestions: apiRun.brief?.clarifying_questions || [],
       parsedBy: apiRun.brief?.parsed_by || null,
+      // Hero-shot render state, when the deployment supports it.
+      render: apiRun.render || null,
       traceId: apiRun.trace_id,
     };
   },

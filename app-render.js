@@ -148,6 +148,56 @@ function renderPacket() {
   nodes.packetOutput.textContent = currentPacketMarkdown();
 }
 
+// The hero-shot render lives strictly downstream of the human gate: the button
+// only appears once the packet is approved, and only on the API path — the
+// offline path explains why instead of pretending (rendering is a paid
+// server-side Veo call the browser cannot make alone).
+function renderRenderPanel() {
+  const render = state.render;
+  const apiPath = Boolean(state.traceId);
+
+  nodes.renderVideo.hidden = true;
+  nodes.renderBtn.hidden = true;
+  nodes.renderBtn.disabled = false;
+
+  if (!state.packetReady) {
+    nodes.renderStatus.textContent =
+      "Once the packet is approved, its hero shot can be rendered with Veo — the prompt and negative prompts are the packet's own.";
+    return;
+  }
+  if (!apiPath) {
+    nodes.renderStatus.textContent =
+      "Rendering runs on the deployed service (a paid Veo call) — open the Cloud Run URL to use it.";
+    return;
+  }
+
+  if (!render || render.status === "none") {
+    nodes.renderBtn.hidden = false;
+    nodes.renderStatus.textContent =
+      "The packet is approved. Render its hero shot with Veo — one clip, from the packet's own prompt and negative prompts.";
+    return;
+  }
+  if (render.status === "rendering" || state.rendering) {
+    nodes.renderBtn.hidden = false;
+    nodes.renderBtn.disabled = true;
+    nodes.renderStatus.textContent = `Veo is rendering the hero shot (${escapeHtml(render.timecode || "")})… typically 1–3 minutes.`;
+    return;
+  }
+  if (render.status === "done") {
+    nodes.renderStatus.textContent = `Hero shot (${escapeHtml(render.timecode || "")}) rendered by ${escapeHtml(render.model || "Veo")}, inheriting the packet's negative prompts.`;
+    nodes.renderVideo.src = `/api/workflow/${encodeURIComponent(state.traceId)}/render/video`;
+    nodes.renderVideo.hidden = false;
+    return;
+  }
+  if (render.status === "filtered") {
+    nodes.renderStatus.textContent =
+      "Veo's safety filter removed the clip. The packet stands on its own.";
+    return;
+  }
+  nodes.renderBtn.hidden = false;
+  nodes.renderStatus.textContent = `Rendering failed: ${escapeHtml(render.error || "unknown error")}. You can try again.`;
+}
+
 function setStatus(label) {
   nodes.runStatus.textContent = label;
 }
@@ -228,4 +278,5 @@ function renderAll() {
   renderAudit();
   renderReviews();
   renderPacket();
+  renderRenderPanel();
 }
