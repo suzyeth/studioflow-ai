@@ -245,7 +245,14 @@ async function fetchWorkflowRun() {
 // the worker moves through it.
 async function pollUntilSettled(traceId) {
   const settled = ["needs_review", "approved", "failed"];
-  const deadline = Date.now() + 60_000;
+  // Generous on purpose. The server is doing real model work, and the free
+  // tier's latency is not constant: a run that normally settles in eight
+  // seconds took seventy-one when Gemini was slow (intake 44s, shots 23s).
+  // At the old 60s deadline the client gave up on a run the server went on to
+  // complete, and dropped into the offline fallback — the worst possible
+  // outcome, because the work was fine and only the client stopped believing
+  // it. The task graph keeps advancing on screen while this waits.
+  const deadline = Date.now() + 300_000;
 
   while (Date.now() < deadline) {
     await wait(POLL_INTERVAL_MS);
