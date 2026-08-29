@@ -66,6 +66,27 @@ reviewed. One capped clip per run, strictly downstream of the human gate — pro
 packet drives real production, without letting the product collapse into a video
 generator.
 
+### And when the cut comes back, the packet is the acceptance criteria
+
+Upload the editor's delivered cut and it is checked **twice**, by two agents that
+fail independently. The first asks whether the footage honours the brief. The second
+asks the question a producer actually asks: *is this the film we approved?* — and its
+standard is not the model's opinion and not the brief's prose, but **the shot list a
+human signed off on**, with its ids, timecodes and descriptions.
+
+It reports, per approved shot, present / missing / uncertain with what it observed,
+plus any footage belonging to no approved shot at all — because "someone put an
+unapproved logo sting in the cut" is exactly what a delivery check exists to catch.
+The shot's identity, timecode and purpose come from the packet, never from the model;
+the model contributes only a status and an observation. Tested live: handing it a cut
+containing one of the six approved shots produced *1 present, 4 missing, 1 uncertain*,
+each missing row naming the content it expected and did not find.
+
+The limits are stated on screen rather than papered over: a model watching video
+cannot do frame-accurate cut detection, so matching is by content, statuses are
+deliberately coarse, and timing is reported but never failed — an editor who trims a
+beat has not violated anything.
+
 And the finished clip is not taken on faith. A **Render Critic** — multimodal Gemini
 — watches it and judges it against the brief's own constraints, one verdict per
 check: pass, fail, or *cannot tell*, with the evidence it saw. The same discipline
