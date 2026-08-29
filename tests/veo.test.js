@@ -106,6 +106,7 @@ async function runToSettled(briefText) {
   let polls = 0;
   let lastStartBody = null;
   let lastVideoCall = null;
+  let conformanceIds = null;
   const stub = await listen(async (req, res) => {
     if (req.url === "/token") {
       res.writeHead(200, { "content-type": "application/json" });
@@ -123,7 +124,21 @@ async function runToSettled(briefText) {
       const videoPart = parts.find((part) => part.inlineData);
 
       let payload;
-      if (videoPart) {
+      if (videoPart && /Conformance Auditor/.test(system)) {
+        // The shot-list comparison: one entry per approved shot, plus one
+        // piece of footage that matches nothing in the list.
+        lastVideoCall = videoPart.inlineData;
+        const ids = [...userText.matchAll(/- (shot_\d+) \(/g)].map((m) => m[1]);
+        conformanceIds = ids;
+        payload = {
+          shots: ids.map((id, index) => ({
+            shot_id: id,
+            status: index === 1 ? "missing" : "present",
+            observed: `Observed ${id} in the cut.`,
+          })),
+          unplanned: [{ observed: "A logo sting nobody approved.", where: "0:18" }],
+        };
+      } else if (videoPart) {
         lastVideoCall = videoPart.inlineData;
         const count = Number((userText.match(/Exactly (\d+) verdict/) || [])[1] || 0);
         payload = {
@@ -450,6 +465,25 @@ async function runToSettled(briefText) {
       cut.toString("base64"),
       "the uploaded bytes are what the model watched",
     );
+
+    // The cut is also compared to the shot list a human approved — the audit
+    // whose standard is not the model's opinion.
+    const conf = uploadedAudit.conformance;
+    assert.equal(conf.status, "done");
+    assert.ok(conformanceIds.length > 0, "the approved shot ids reached the prompt");
+    assert.equal(conf.shots.length, conformanceIds.length, "one entry per approved shot");
+    assert.deepEqual(
+      conf.shots.map((entry) => entry.shot_id),
+      conformanceIds,
+      "shot identity comes from the packet, in packet order",
+    );
+    assert.ok(
+      conf.shots.every((entry) => entry.timecode && entry.purpose),
+      "each row carries the approved timecode and purpose, not just a model verdict",
+    );
+    assert.equal(conf.summary.missing, 1, "a dropped shot is reported as missing");
+    assert.equal(conf.summary.unplanned, 1, "footage matching no approved shot is reported");
+    assert.equal(conf.unplanned[0].where, "0:18");
 
     // A non-video upload is refused before any model call.
     const notVideo = await fetch(`${BASE}/api/workflow/${approved.trace_id}/audit`, {

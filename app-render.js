@@ -276,12 +276,65 @@ function renderUploadPanel() {
     return;
   }
   nodes.uploadStatus.textContent =
-    "The editor sent the final cut — did it survive the brief? Upload the video and the Render Critic judges it against this brief's own constraints.";
+    "The editor sent the final cut — did it survive the brief? Upload the video and it is checked twice: against this brief's constraints, and against the shot list you approved.";
   renderVerdictList(
     nodes.uploadAudit,
     state.uploadedAudit,
     "Render Critic — the delivered cut against the brief's own checks",
   );
+  renderConformance(state.uploadedAudit && state.uploadedAudit.conformance);
+}
+
+// The delivered cut against the approved shot list. This is the audit with the
+// strongest evidence in the product: the standard is not the model's opinion,
+// it is the shot list a human signed off on. Statuses are deliberately coarse
+// — a model watching video cannot do frame-accurate cut detection, and the
+// panel says so rather than implying a precision it does not have.
+function renderConformance(conformance) {
+  nodes.uploadConformance.hidden = true;
+  if (!conformance) return;
+
+  if (conformance.status !== "done") {
+    nodes.uploadConformance.innerHTML = `<p class="render-audit-skipped">Shot list not compared: ${escapeHtml(conformance.reason || "unknown reason")}</p>`;
+    nodes.uploadConformance.hidden = false;
+    return;
+  }
+
+  const MARKS = { present: "✓", missing: "✗", uncertain: "?" };
+  const s = conformance.summary || {};
+  const unplanned = conformance.unplanned || [];
+
+  nodes.uploadConformance.innerHTML = `
+    <p class="render-audit-title">Conformance — the cut against the approved shot list</p>
+    <p class="render-audit-scope">${escapeHtml(
+      `${s.present || 0} of ${(conformance.shots || []).length} approved shots found · ${s.missing || 0} missing · ${s.uncertain || 0} uncertain · ${unplanned.length} unplanned. Matched by content, not by frame — timing is reported, never failed.`,
+    )}</p>
+    ${(conformance.shots || [])
+      .map(
+        (entry) => `
+          <div class="render-verdict render-verdict-${escapeHtml(entry.status)}">
+            <span class="render-verdict-mark">${MARKS[entry.status] || "?"}</span>
+            <div>
+              <div class="render-verdict-check">${escapeHtml(entry.shot_id)} · ${escapeHtml(entry.timecode)} — ${escapeHtml(entry.purpose)}</div>
+              <div class="render-verdict-evidence">${escapeHtml(entry.observed)}</div>
+            </div>
+          </div>`,
+      )
+      .join("")}
+    ${unplanned
+      .map(
+        (entry) => `
+          <div class="render-verdict render-verdict-unplanned">
+            <span class="render-verdict-mark">!</span>
+            <div>
+              <div class="render-verdict-check">Not in the approved shot list${entry.where ? ` · ${escapeHtml(entry.where)}` : ""}</div>
+              <div class="render-verdict-evidence">${escapeHtml(entry.observed)}</div>
+            </div>
+          </div>`,
+      )
+      .join("")}
+  `;
+  nodes.uploadConformance.hidden = false;
 }
 
 function setStatus(label) {

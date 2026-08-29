@@ -628,3 +628,9 @@ textarea {
   font-size: 0.8rem;
   margin: 12px 0 8px;
 }
+
+.render-verdict-present .render-verdict-mark { color: #7ee787; }
+.render-verdict-missing .render-verdict-mark { color: #ff9492; }
+.render-verdict-uncertain .render-verdict-mark { color: #d29922; }
+.render-verdict-unplanned .render-verdict-mark { color: #d29922; }
+.render-verdict-unplanned { border-style: dashed; }

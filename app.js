@@ -57,6 +57,7 @@ const nodes = {
   uploadBtn: document.getElementById("uploadBtn"),
   uploadStatus: document.getElementById("uploadStatus"),
   uploadAudit: document.getElementById("uploadAudit"),
+  uploadConformance: document.getElementById("uploadConformance"),
 };
 
 function nowLabel() {

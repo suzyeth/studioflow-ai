@@ -15,6 +15,7 @@ const { createJobQueue } = require("./lib/queue");
 const { createFirestoreMirror, withMirror } = require("./lib/store-firestore");
 const { createVeoRenderer } = require("./lib/veo");
 const { runRenderCritic } = require("./lib/agents/render-critic");
+const { runConformanceAudit } = require("./lib/agents/conformance");
 
 const PORT = Number(process.env.PORT || 4173);
 const ROOT = __dirname;
@@ -506,6 +507,17 @@ async function handleApi(req, res, pathname) {
       }
 
       auditsUsed += 1;
+      const deliveredShotList = latestArtifact(run, "shots")?.data;
+
+      // Two questions, asked separately because they fail separately: does the
+      // cut honour the brief, and is it the film that was approved. The second
+      // is the one with the strongest evidence — its standard is the shot list
+      // a human signed off on, not the model's opinion.
+      const conformance = await runConformanceAudit(
+        { video, mimeType: contentType.split(";")[0], shotList: deliveredShotList },
+        { provider },
+      );
+
       const audit = await runRenderCritic(
         {
           video,
@@ -521,6 +533,7 @@ async function handleApi(req, res, pathname) {
 
       const record = {
         ...audit,
+        conformance,
         source: "uploaded",
         size_bytes: video.length,
         at: new Date().toISOString(),
@@ -539,7 +552,7 @@ async function handleApi(req, res, pathname) {
             event_type: audit.status === "done" ? "delivery_audited" : "delivery_audit_skipped",
             message:
               audit.status === "done"
-                ? `Render Critic watched a delivered cut (${Math.round(video.length / 1_000_000)}MB) against ${audit.verdicts.length} check(s): ${audit.verdicts.filter((v) => v.verdict === "pass").length} pass, ${audit.verdicts.filter((v) => v.verdict === "fail").length} fail, ${audit.verdicts.filter((v) => v.verdict === "cannot_tell").length} cannot tell.`
+                ? `Render Critic watched a delivered cut (${Math.round(video.length / 1_000_000)}MB) against ${audit.verdicts.length} check(s): ${audit.verdicts.filter((v) => v.verdict === "pass").length} pass, ${audit.verdicts.filter((v) => v.verdict === "fail").length} fail, ${audit.verdicts.filter((v) => v.verdict === "cannot_tell").length} cannot tell.${conformance.status === "done" ? ` Against the approved shot list: ${conformance.summary.present} present, ${conformance.summary.missing} missing, ${conformance.summary.uncertain} uncertain, ${conformance.summary.unplanned} unplanned.` : ""}`
                 : `Render Critic could not audit the delivered cut (${audit.reason}).`,
           },
         ],
