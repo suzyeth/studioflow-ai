@@ -91,10 +91,10 @@ Verified behaviour, which the script narrates:
 
 **Screen:** the app, idle, on the deployed URL. **The URL bar must be visible.**
 
-> A creative brief arrives as a paragraph of prose. Buried in it are constraints: show
-> the product in the first five seconds, avoid health claims, include a call to action.
-> The failure that costs money is that one of them quietly does not survive into the
-> shot list, the prompts, and the final cut. Nobody notices until the edit.
+> A brief arrives as prose. Buried in it are constraints — product in five seconds, no
+> health claims, a clear call to action. What costs money is one of them quietly not
+> surviving into the shot list, the prompts, and the final cut. Nobody notices until
+> the edit.
 
 ### 0:18–0:32 · Proof it is live
 
@@ -103,10 +103,9 @@ Verified behaviour, which the script narrates:
 **Point the cursor at these in order:** `"runtime": "cloud-run"`, `"revision"`,
 `"intake_provider": "gemini"`, `"store": {"mirror": "firestore"}`.
 
-> This is running on Cloud Run, on this revision, backed by Gemini through the Google
-> GenAI SDK, with every run mirrored to Firestore. `runtime` and `revision` come from
-> environment variables only Cloud Run injects — that is what makes them evidence
-> rather than a string I typed.
+> Cloud Run, this revision, Gemini through the Google GenAI SDK, every run mirrored to
+> Firestore. Runtime and revision come from variables only Cloud Run injects —
+> evidence, not a string I typed.
 
 ### 0:32–1:00 · Paste the brief, watch the graph move
 
@@ -115,10 +114,10 @@ Verified behaviour, which the script narrates:
 ⚠️ **Intake takes ~4.5 seconds** on `gemini-3.5-flash-lite`. Start speaking as you
 click, not after.
 
-> The API returns immediately with every task queued — the work runs in the background
-> and the client polls. Two of the six agents call a model: Intake turns prose into a
-> structured brief, and the Shot Agent writes the shot descriptions. The other four are
-> deterministic on purpose — the Critic's checks have to be exact, not plausible.
+> The API returns immediately with everything queued — the work runs in the background
+> and the client polls. Two of the six agents call a model: Intake structures the brief,
+> the Shot Agent writes the descriptions. The other four are deterministic on purpose —
+> the Critic's checks have to be exact, not plausible.
 
 **Let the last tasks land in silence.** They finish in milliseconds and the contrast is
 worth seeing.
@@ -127,42 +126,40 @@ worth seeing.
 
 **Screen:** the clarifying question.
 
-> The brief never said who this is for. Rather than quietly inventing an audience, it
-> asked — and it names which field the answer fills and why it blocks planning.
+> The brief never said who this is for. Rather than invent an audience, it asked — and
+> it names the field the answer fills and why it blocks planning.
 
 **Answer `Young urban professionals`. Submit.** ⚠️ Second ~4.5s wait — cover it:
 
-> The answer is folded back into the brief as a labelled line, so intake reads it the
-> way it read the original prose, and the whole workflow reruns — you cannot plan shots
-> for an audience you learned about afterwards.
+> The answer folds back in as a labelled line, so intake reads it the way it read the
+> original prose, and the whole workflow reruns.
 
 **Screen:** the queue is now two findings.
 
-> Three findings became two. The one that disappeared is the one I just resolved.
+> Three findings became two. The one that vanished is the one I resolved.
 
 ### 1:28–1:55 · The Critic, and a revision that actually changes something
 
 **Screen:** review queue. Then click **Revise** on "Subject appears too late".
 
-> The two that remain are real. The brief demanded the product inside five seconds and
-> the reveal landed at ten — found by reading the generated shot list, not by restating
-> the brief back to me. Fifteen checks ran; thirteen found nothing, because this brief
-> gave them nothing to check.
+> The two that remain are real. The brief demanded the product inside five seconds; the
+> reveal landed at ten — found by reading the generated shot list. Fifteen checks ran;
+> thirteen found nothing, because this brief gave them nothing to check.
 >
-> I request a revision. The system reruns only the agents the finding names, with that
-> constraint enforced — and the shot list is now version two, with the product at zero
-> seconds. The content changed, not just the version number. The correction is kept as
-> state and carried into every later rerun.
+> I request a revision. It reruns only the agents the finding names, with that
+> constraint enforced — shot list version two, product at zero seconds. The content
+> changed, not just the number. And the correction is kept as state for every later
+> rerun.
 
 ### 1:55–2:10 · Approve, and start the render
 
 **Screen:** approve the second finding → packet appears. Scroll to **Hero Shot Render**
 and click **Render with Veo**.
 
-> I approve the second finding and the packet is regenerated. Now — the packet is not
-> just a deliverable, it is the instruction. I render its hero shot with Veo, using the
-> packet's own prompt and the negative prompts inherited from the brief. Nothing renders
-> before approval; the button does not exist until the queue is empty.
+> Approved, packet regenerated. And the packet is not just a deliverable, it is the
+> instruction: I render its hero shot with Veo, using the packet's own prompt and the
+> negative prompts inherited from the brief. Nothing renders before approval — the
+> button does not exist until the queue is empty.
 
 **The clock is now running. Do not wait. Move on.**
 
@@ -171,29 +168,24 @@ and click **Render with Veo**.
 **Screen:** scroll to **Audit a Delivered Cut**. Choose `final-cut-v3.mp4`. Click
 **Audit with Gemini**.
 
-> That render is a real sixty-to-ninety second job running in the background, so while
-> it works, here is the other half. This is the editor's delivered cut coming back, and
-> it gets checked twice.
+> That render is a real ninety-second job running in the background. While it works —
+> the editor's delivered cut comes back, and it gets checked twice.
 
 **Wait for the verdicts (~15–40s), then read from the screen:**
 
-> First, against the brief: the same constraints, now judged from the footage — pass,
-> fail, or *cannot tell*, each with the evidence it saw. It says cannot-tell where the
-> picture genuinely cannot answer, which is the difference between an auditor and a
-> rubber stamp.
+> Against the brief: the same constraints judged from footage, each with evidence — and
+> *cannot tell* where the picture genuinely cannot answer.
 >
-> Second — and this is the one with real teeth — against the shot list I approved. Not
-> the model's taste: the six shots a human signed off on. It found one of them, and it
-> names what it expected and did not see for each of the others. If somebody had slipped
-> in a shot nobody approved, it would be listed too.
+> Then against the shot list I approved. Not the model's taste — the six shots a human
+> signed off on. It found one, and names what it expected and did not see for the rest.
+> An unapproved shot would be listed too.
 
 ### 2:55–3:15 · Google Cloud proof *(cut this first if long)*
 
 **Screen:** tab 3, Cloud Run service page. Then tab 4, Cloud Logging, already filtered.
 
-> Cloud Run, built by Cloud Build from the repository. Every task, artifact and audit
-> event carries a trace ID, so one run is a single filter away in Cloud Logging — and
-> runs survive a restart, because the store is mirrored to Firestore.
+> Every task, artifact and audit event carries a trace ID, so one run is a single filter
+> away — and runs survive a restart, because the store is mirrored to Firestore.
 
 **Scroll the log list once, slowly. Do not click into an entry.**
 
@@ -203,15 +195,15 @@ and click **Render with Veo**.
 
 **Plan A — it finished:**
 
-> And here it is. Rendered from the approved packet — and audited in turn: the clip
-> against the checks a single shot can fairly answer, with the ones it cannot answer for
-> listed explicitly, because a silently skipped check reads exactly like one that passed.
+> And here it is — rendered from the approved packet, then audited in turn: the clip
+> against the checks a single shot can fairly answer, with the ones it cannot listed
+> explicitly. A silently skipped check reads exactly like one that passed.
 
 **Plan B — still rendering (this is not a failure, say it with confidence):**
 
-> Still working — a real ninety-second generation job. The operation id lives on the run
-> record, mirrored to Firestore, so this survives me closing the tab or the container
-> restarting. Here is the same step from a run I made a few minutes ago —
+> Still working — a real ninety-second job. The operation id lives on the run record,
+> mirrored to Firestore, so it survives me closing this tab. Here is the same step from
+> a run I made a few minutes ago —
 
 **switch to tab 5** and read the Plan A lines off that screen. Say plainly that it is an
 earlier run. An honest cutaway costs nothing; pretending costs everything.
@@ -222,7 +214,6 @@ earlier run. An honest cutaway costs nothing; pretending costs everything.
 
 > A brief in, a checked packet out, a rendered shot checked against it, and a delivered
 > cut checked against the shot list that was approved. Every step on the record.
-> StudioFlow AI.
 
 ---
 
