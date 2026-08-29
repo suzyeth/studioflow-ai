@@ -168,34 +168,51 @@
 
           <div class="panel-heading proof-subheading">
             <div>
-              <p class="eyebrow">Not Yet Wired</p>
-              <h2>Target Google Cloud Services</h2>
+              <p class="eyebrow">Wired and Running</p>
+              <h2>Google Cloud in This Run</h2>
+            </div>
+          </div>
+          <div class="proof-grid">
+            <div class="proof-item">
+              <strong>Cloud Run</strong>
+              <span>Serving this page. Built by Cloud Build from the repository Dockerfile.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Gemini · Google GenAI SDK</strong>
+              <span>Intake structures the brief; the Shot Agent writes the descriptions.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Vertex AI · Veo</strong>
+              <span>Renders the approved hero shot. One capped clip per run.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Firestore</strong>
+              <span>Every run mirrored. A restart does not lose completed work.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Secret Manager</strong>
+              <span>Holds the API key. It is never an environment variable in the manifest.</span>
+            </div>
+            <div class="proof-item">
+              <strong>Cloud Logging</strong>
+              <span>Receives the trace id carried on every task, artifact and audit event.</span>
+            </div>
+          </div>
+
+          <div class="panel-heading proof-subheading">
+            <div>
+              <p class="eyebrow">Deliberately Not Wired</p>
+              <h2>Still In-Process</h2>
             </div>
           </div>
           <div class="proof-grid proof-grid-muted">
             <div class="proof-item">
-              <strong>Cloud Run</strong>
-              <span>Would host this API. Dockerfile is present but undeployed.</span>
-            </div>
-            <div class="proof-item">
               <strong>Pub/Sub or Cloud Tasks</strong>
-              <span>Would replace the in-process queue in lib/queue.js.</span>
-            </div>
-            <div class="proof-item">
-              <strong>Firestore</strong>
-              <span>Would replace the in-memory run store. Nothing persists today.</span>
+              <span>The job queue is in-process (lib/queue.js), which is why the service runs one instance.</span>
             </div>
             <div class="proof-item">
               <strong>Cloud Storage</strong>
-              <span>Would hold packets and generated files.</span>
-            </div>
-            <div class="proof-item">
-              <strong>Cloud Logging</strong>
-              <span>Would receive the trace ids this run already emits.</span>
-            </div>
-            <div class="proof-item">
-              <strong>Gemini via ADK</strong>
-              <span>Adapter exists in lib/llm.js, unverified without an API key.</span>
+              <span>Packets are returned inline; rendered clips are served from the run, not a bucket.</span>
             </div>
           </div>
         </section>
