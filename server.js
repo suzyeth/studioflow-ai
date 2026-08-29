@@ -389,7 +389,42 @@ async function handleApi(req, res, pathname) {
         return;
       }
 
-      const result = await veo.poll(run.render.operation);
+      // A poll can fail two ways, and they need different answers. A transport
+      // hiccup should leave the render alone — the operation is still running
+      // and the next poll will find it. An operation that reports its own
+      // failure (Vertex answers code 13 "internal error" often enough to plan
+      // for) is terminal, and 502-ing forever would leave the run stuck on
+      // "rendering" with no way back. Record it as failed with the real reason
+      // so the button returns and the reason reaches the human.
+      let result;
+      try {
+        result = await veo.poll(run.render.operation);
+      } catch (error) {
+        const terminal = /operation failed/i.test(error.message);
+        if (!terminal) {
+          sendJson(res, 200, { ...run.render, poll_error: error.message });
+          return;
+        }
+        const failed = runStore.update(run.trace_id, (current) => ({
+          ...current,
+          render: { ...current.render, status: "failed", error: error.message },
+          audit_events: [
+            ...current.audit_events,
+            {
+              id: `audit_${current.audit_events.length + 1}`,
+              trace_id: current.trace_id,
+              created_at: new Date().toISOString(),
+              actor_type: "agent",
+              actor_id: "render_agent",
+              event_type: "render_failed",
+              message: `Veo could not deliver the clip: ${error.message}`,
+            },
+          ],
+        }));
+        sendJson(res, 200, failed ? failed.render : { ...run.render, status: "failed", error: error.message });
+        return;
+      }
+
       if (!result.done) {
         sendJson(res, 200, run.render);
         return;

@@ -181,12 +181,19 @@ async function startHeroRender() {
     state.render = payload;
     renderRenderPanel();
 
+    let pollFailures = 0;
     while (state.render && state.render.status === "rendering") {
       await new Promise((resolve) => setTimeout(resolve, 5000));
       const poll = await fetch(`/api/workflow/${encodeURIComponent(state.traceId)}/render`, {
         cache: "no-store",
       });
-      if (!poll.ok) throw new Error("Render polling failed");
+      // A single bad poll is not a failed render — the server keeps the
+      // operation and the next poll picks it up. Only give up after several.
+      if (!poll.ok) {
+        if (++pollFailures >= 5) throw new Error(`Render polling failed ${pollFailures} times`);
+        continue;
+      }
+      pollFailures = 0;
       state.render = await poll.json();
       renderRenderPanel();
     }
