@@ -467,7 +467,11 @@ textarea {
 }
 
 .packet-output {
-  min-height: 520px;
+  /* Capped so the render and delivery panels below stay within reach — an
+     uncapped packet pushed them a full screen down, which is awkward on
+     camera and easy to overscroll past. */
+  min-height: 280px;
+  max-height: 44vh;
   white-space: pre-wrap;
   overflow: auto;
   margin: 0;
