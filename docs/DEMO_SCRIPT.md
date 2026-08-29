@@ -7,23 +7,21 @@ track. Everything else is supporting evidence.
 
 The rules require **unedited live execution** and proof the backend is running on
 Google Cloud. That makes this a rehearsal sheet, not a storyboard: no cut can save a
-step that hangs, so every step below is either instant or has a stated fallback.
+step that hangs, so every step below is either instant, or has narration sized to
+cover it, or has a stated fallback.
 
-Target **3:40**, hard ceiling 4:00. The margin is for speaking slower than you plan to.
+Target **3:45**, hard ceiling 4:00. Narration is ~500 words; at a deliberate 135 wpm
+that is 3:42, leaving the margin for pauses rather than for extra sentences. **If you
+are running long, cut from the Cloud proof section — never from the clarification loop
+or the revision.**
 
-Narration is ~560 words. At a deliberate 135 wpm that is 4:09 — **over the ceiling.**
+## The one piece of choreography that matters
 
-It used to be that two ~10s model waits absorbed the overrun. Switching to
-`gemini-3.5-flash-lite` cut those to ~4.5s each, which is better for the demo and
-worse for the script: there are now only ~9 seconds of latency to speak over instead
-of ~20. **The narration has to lose 25–40 words.** Read it aloud with a timer, and cut
-from the second half of the Critic section (the "fifteen checks" lines) — never the
-clarification loop or the revision, which are the track.
-
-**Two four-second waits, both narrated.** Intake is the only step that calls a model,
-it takes ~4.5s against `gemini-3.5-flash-lite`, and it runs twice: once on the first pass and
-once when the clarifying answer reruns the workflow. Everything else finishes in
-milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
+The Veo render takes **60–90 seconds**. You do not wait for it. You start it, then go
+and do the delivered-cut audit and the Cloud proof while it runs in the background, and
+come back to it. That is not a workaround — background execution is this hackathon's
+entire theme, and a demo that shows a real 90-second job being tracked while you do
+something else is worth more than one that shows a fast result.
 
 ---
 
@@ -34,31 +32,34 @@ milliseconds. Those two gaps are budgeted as speaking time, not as pauses.
 - [ ] `gcloud run services update studioflow-ai --region us-central1 --min-instances=1`
       — a cold start mid-demo is the most likely way this take dies. **Set it back to
       `0` after recording.**
-- [ ] Load the deployed URL once and run one full workflow, to warm the container and
-      confirm the build actually works. Then reload for a clean state. **This also warms
-      the model path** — the first call of the day is the slowest one.
-- [ ] `curl <URL>/api/health` — confirm `"runtime": "cloud-run"` **and**
-      `"intake_provider": "gemini"`. If the provider says `local`, the key is not
-      reaching the container. Fix before recording.
+- [ ] Run one full workflow on the deployed URL, including a render, to warm the
+      container and the model path. Then reload for a clean state.
+- [ ] `curl <URL>/api/health` — confirm `"runtime": "cloud-run"`,
+      `"intake_provider": "gemini"`, `"store": {"mirror": "firestore"}`, and
+      `"render": {"enabled": true}`. If the provider says `local`, **stop and fix it**;
+      the central claim is not demonstrable.
 - [ ] **Then run one workflow and check `parsed_by` on the result.** Health reports the
       *configured* provider, not a working one: a failing call degrades to the keyless
-      parser silently while health still says `gemini`. That happened on the first
-      deploy. `parsed_by: gemini` on an actual run is the only real confirmation.
+      parser silently while health still says `gemini`. `parsed_by: gemini` on an actual
+      run is the only real confirmation.
 
 **The screen**
 
-- [ ] Browser zoom ~125%. The task graph and the review queue have to be readable at
-      video resolution — this is the single most common reason a good demo scores badly
-      on presentation.
+- [ ] Browser zoom ~125%. The task graph, the review queue and the verdict lists have
+      to be readable at video resolution.
 - [ ] Tabs, pre-opened, in this order: **1** the app · **2** `/api/health` · **3** Cloud
-      Run console (service detail page) · **4** Cloud Logging, query already typed and
-      run, filtered by the service. Do not type a query on camera.
-- [ ] The brief text below already in the clipboard. Do not type it on camera — typing
-      30 seconds of prose is 30 seconds of nothing happening.
+      Run console (service detail) · **4** Cloud Logging, query already typed and run ·
+      **5** the app again, showing a **completed render from your rehearsal run** — this
+      is the fallback if the live render is slow. Do not type a query on camera.
+- [ ] The brief below already in the clipboard, and `Young urban professionals` in a
+      second clipboard slot.
+- [ ] **A video file on the desktop for the delivered-cut upload**, renamed to something
+      that reads on camera, e.g. `final-cut-v3.mp4`. Any of the clips this system has
+      rendered works. Under 15MB.
 - [ ] Close notifications, other windows, and anything with a personal name in it.
 
-**Rehearse the whole thing twice.** The point of rehearsal is not the words, it is
-knowing how long the run actually takes so you are not narrating into silence.
+**Rehearse the whole thing twice.** The point is not the words, it is knowing how long
+each step actually takes so you are never narrating into silence.
 
 ---
 
@@ -82,146 +83,145 @@ Verified behaviour, which the script narrates:
 | First run | 1 — Audience | `hero-window`, `missing-cta`, **`open-questions`** |
 | After answering `Young urban professionals` | 0 | `hero-window`, `missing-cta` |
 
-The second answer to have ready, in a second clipboard slot or typed live (it is three
-words): `Young urban professionals`
-
 ---
 
 ## The script
 
-### 0:00–0:25 · Problem
+### 0:00–0:18 · Problem
 
-**Screen:** the app, idle, on the deployed URL. **The URL bar must be visible and legible.**
+**Screen:** the app, idle, on the deployed URL. **The URL bar must be visible.**
 
-> A creative brief arrives as a paragraph of prose. Somewhere inside it are constraints:
-> show the product in the first five seconds, avoid health claims, include a call to
-> action. Turning that into a shot list, an asset plan and a prompt pack takes a
-> producer days — and the part that actually goes wrong is that a stated constraint
-> quietly fails to survive the process. Nobody notices until the edit.
+> A creative brief arrives as a paragraph of prose. Buried in it are constraints: show
+> the product in the first five seconds, avoid health claims, include a call to action.
+> The failure that costs money is that one of them quietly does not survive into the
+> shot list, the prompts, and the final cut. Nobody notices until the edit.
 
-### 0:25–0:45 · What this is, and proof it is live
+### 0:18–0:32 · Proof it is live
 
-**Screen:** switch to tab 2, `/api/health`. Let the JSON sit on screen for three seconds.
+**Screen:** tab 2, `/api/health`. Let the JSON sit for three seconds.
 
-> StudioFlow AI is not a video generator. It is a collaborator: it reads the brief, asks
-> for what is missing, produces a production packet, and shows you where the packet
-> failed the brief — then takes your correction and carries it forward. This is running
-> on Cloud Run — and the health endpoint proves both halves of that sentence at once.
+**Point the cursor at these in order:** `"runtime": "cloud-run"`, `"revision"`,
+`"intake_provider": "gemini"`, `"store": {"mirror": "firestore"}`.
 
-**Point the cursor at these four lines in order:** `"runtime": "cloud-run"`,
-`"revision"`, `"intake_provider": "gemini"`, `"intake_model"`. That one response is
-the entire deployment claim. `runtime` and `revision` come from environment variables
-only Cloud Run injects, which is what makes them evidence rather than a string
-somebody typed.
+> This is running on Cloud Run, on this revision, backed by Gemini through the Google
+> GenAI SDK, with every run mirrored to Firestore. `runtime` and `revision` come from
+> environment variables only Cloud Run injects — that is what makes them evidence
+> rather than a string I typed.
 
-> Running on Cloud Run, on this revision, backed by Gemini three-point-five
-> Flash-Lite through the Google GenAI SDK.
+### 0:32–1:00 · Paste the brief, watch the graph move
 
-### 0:45–1:15 · Paste the brief, watch the graph move
+**Screen:** tab 1. Paste. Click **Run Workflow**.
 
-**Screen:** back to tab 1. Paste. Click **Run Workflow**.
+⚠️ **Intake takes ~4.5 seconds** on `gemini-3.5-flash-lite`. Start speaking as you
+click, not after.
 
-> I paste the brief and start the run. The API returns immediately with every task
-> queued — the work happens in the background, and the client polls.
+> The API returns immediately with every task queued — the work runs in the background
+> and the client polls. Two of the six agents call a model: Intake turns prose into a
+> structured brief, and the Shot Agent writes the shot descriptions. The other four are
+> deterministic on purpose — the Critic's checks have to be exact, not plausible.
 
-⚠️ **Intake takes about four and a half seconds on the deployed service** (measured
-4.1–4.7s across 8 runs on `gemini-3.5-flash-lite`), against under three for the whole graph on the keyless path. Do
-not wait it out in silence — five seconds of dead air is still a long time on camera, and
-there is no cut available to hide it. **Talk through it.** The lines below are written
-to fill exactly that gap, so deliver them while Intake is spinning:
+**Let the last tasks land in silence.** They finish in milliseconds and the contrast is
+worth seeing.
 
-> Intake is the only step that calls a model, and it is working now — turning a
-> paragraph of prose into a structured brief with typed fields, validated against a
-> schema before it is allowed to become an artifact.
->
-> The four production agents behind it are deterministic generators, and that is a
-> deliberate choice rather than a shortcut. I would rather the checking be trustworthy
-> than the prose be pretty — and it is why I can tell you exactly what the model did
-> and did not decide.
+### 1:00–1:28 · It asks. You answer. It adapts. *(never cut this)*
 
-**By now the graph should be moving.** Let the last few tasks land while you stop
-talking — they finish in milliseconds, and that contrast is worth seeing.
+**Screen:** the clarifying question.
 
-### 1:15–1:50 · It asks. You answer. It adapts. *(the track's thesis — never cut this)*
+> The brief never said who this is for. Rather than quietly inventing an audience, it
+> asked — and it names which field the answer fills and why it blocks planning.
 
-**Screen:** the clarifying question, then the review queue showing three findings.
+**Answer `Young urban professionals`. Submit.** ⚠️ Second ~4.5s wait — cover it:
 
-> It did the work — six artifacts, each generated from this brief, each carrying where
-> it came from. But notice what else it did. The brief never said who this is for, and
-> rather than quietly inventing an audience, it asked — and it says which field the
-> answer fills and why it blocks planning. Its own Critic then flagged the run as
-> proceeding on incomplete information.
-
-**Answer the question: `Young urban professionals`. Submit.**
-
-⚠️ **This is the second four-second wait.** Answering reruns the whole workflow, which
-means Intake calls the model again. The lines below are sized to cover it — start
-speaking as soon as you submit, not after.
-
-> I answer, and the answer is folded back into the brief as a labelled line, so intake
-> reads it exactly the way it read the original prose. The whole workflow reruns,
-> because everything downstream of intake depends on it — you cannot plan shots for an
-> audience you learned about after the shots were planned.
+> The answer is folded back into the brief as a labelled line, so intake reads it the
+> way it read the original prose, and the whole workflow reruns — you cannot plan shots
+> for an audience you learned about afterwards.
 
 **Screen:** the queue is now two findings.
 
 > Three findings became two. The one that disappeared is the one I just resolved.
 
-### 1:50–2:25 · The Critic — what a single prompt cannot do
+### 1:28–1:55 · The Critic, and a revision that actually changes something
 
-**Screen:** the review queue, both remaining findings visible.
+**Screen:** review queue. Then click **Revise** on "Subject appears too late".
 
-> The two that remain are real. The brief demanded the product inside five seconds, and
-> the reveal landed at ten. It found that by reading the generated shot list, not by
-> restating the brief back to me — and it names the agents responsible.
+> The two that remain are real. The brief demanded the product inside five seconds and
+> the reveal landed at ten — found by reading the generated shot list, not by restating
+> the brief back to me. Fifteen checks ran; thirteen found nothing, because this brief
+> gave them nothing to check.
 >
-> It matters just as much that this queue is short. Fifteen checks ran against these
-> artifacts. Thirteen found nothing, because this brief gave them nothing to check. A review
-> queue is only worth reading if everything in it is real.
+> I request a revision. The system reruns only the agents the finding names, with that
+> constraint enforced — and the shot list is now version two, with the product at zero
+> seconds. The content changed, not just the version number. The correction is kept as
+> state and carried into every later rerun.
 
-*(Fifteen is `CHECKS.length` in `critic-checks.js` — a judge can count them. Do not
-confuse it with the number of finding types; these are the checks that ran.)*
+### 1:55–2:10 · Approve, and start the render
 
-### 2:25–3:00 · Revise — the artifact actually changes
+**Screen:** approve the second finding → packet appears. Scroll to **Hero Shot Render**
+and click **Render with Veo**.
 
-**Screen:** click **Revise** on "Subject appears too late". Then show the shot list again.
+> I approve the second finding and the packet is regenerated. Now — the packet is not
+> just a deliverable, it is the instruction. I render its hero shot with Veo, using the
+> packet's own prompt and the negative prompts inherited from the brief. Nothing renders
+> before approval; the button does not exist until the queue is empty.
 
-> I request a revision. The finding carries the constraint that fixes it, so the system
-> reruns only the two agents it named, with that constraint enforced.
+**The clock is now running. Do not wait. Move on.**
+
+### 2:10–2:55 · While it renders: audit a delivered cut
+
+**Screen:** scroll to **Audit a Delivered Cut**. Choose `final-cut-v3.mp4`. Click
+**Audit with Gemini**.
+
+> That render is a real sixty-to-ninety second job running in the background, so while
+> it works, here is the other half. This is the editor's delivered cut coming back, and
+> it gets checked twice.
+
+**Wait for the verdicts (~15–40s), then read from the screen:**
+
+> First, against the brief: the same constraints, now judged from the footage — pass,
+> fail, or *cannot tell*, each with the evidence it saw. It says cannot-tell where the
+> picture genuinely cannot answer, which is the difference between an auditor and a
+> rubber stamp.
 >
-> The shot list is now version two — and the first shot is the product, at zero seconds,
-> unobstructed. The content changed, not just the version number.
->
-> And the correction is kept. It is not applied once and forgotten — it is held as state
-> and carried into every later rerun, so the system does not need to be told the same
-> thing twice. That is the second time in four minutes it adapted to me: once from a
-> question I answered, once from a correction I made.
+> Second — and this is the one with real teeth — against the shot list I approved. Not
+> the model's taste: the six shots a human signed off on. It found one of them, and it
+> names what it expected and did not see for each of the others. If somebody had slipped
+> in a shot nobody approved, it would be listed too.
 
-### 3:00–3:20 · Approve, packet, audit trail
+### 2:55–3:15 · Google Cloud proof *(cut this first if long)*
 
-**Screen:** approve the second finding. Show the packet, then the audit trail.
+**Screen:** tab 3, Cloud Run service page. Then tab 4, Cloud Logging, already filtered.
 
-> I approve the second finding, the run closes, and the packet is regenerated. And the
-> whole thing is on the record: agent actions and human decisions, distinguished, in
-> order — who reran what, and why.
+> Cloud Run, built by Cloud Build from the repository. Every task, artifact and audit
+> event carries a trace ID, so one run is a single filter away in Cloud Logging — and
+> runs survive a restart, because the store is mirrored to Firestore.
 
-### 3:20–3:45 · Google Cloud proof
+**Scroll the log list once, slowly. Do not click into an entry.**
 
-**Screen:** tab 3, Cloud Run service page — service name, region, revision, URL all
-visible. Then tab 4, Cloud Logging, already filtered.
+### 3:15–3:40 · Back to the render
 
-> Running on Cloud Run, built with Cloud Build from the repository. Every task, artifact
-> and audit event carries a trace ID, so a single run is one filter away in Cloud
-> Logging.
+**Screen:** tab 1, scroll to the render panel.
 
-**Scroll the log list once, slowly. Do not click into an entry** — that is a page load
-you cannot afford.
+**Plan A — it finished:**
 
-### 3:45–3:55 · Close
+> And here it is. Rendered from the approved packet — and audited in turn: the clip
+> against the checks a single shot can fairly answer, with the ones it cannot answer for
+> listed explicitly, because a silently skipped check reads exactly like one that passed.
+
+**Plan B — still rendering (this is not a failure, say it with confidence):**
+
+> Still working — a real ninety-second generation job. The operation id lives on the run
+> record, mirrored to Firestore, so this survives me closing the tab or the container
+> restarting. Here is the same step from a run I made a few minutes ago —
+
+**switch to tab 5** and read the Plan A lines off that screen. Say plainly that it is an
+earlier run. An honest cutaway costs nothing; pretending costs everything.
+
+### 3:40–3:50 · Close
 
 **Screen:** back to the packet.
 
-> A brief in, a checked production packet out, with the reason for every change kept.
+> A brief in, a checked packet out, a rendered shot checked against it, and a delivered
+> cut checked against the shot list that was approved. Every step on the record.
 > StudioFlow AI.
 
 ---
@@ -232,13 +232,15 @@ You cannot cut, so decide these now rather than freezing on camera.
 
 | What happens | What you do |
 | --- | --- |
-| The run hangs past ~20 seconds | Intake against a real model is ~4.5s, so do not panic early. Past twenty, say "the container is waking up" and wait. It resolves or it does not; if it does not, stop and restart the take. Do not narrate over a frozen screen for 30 seconds. |
 | `/api/health` says `local` | **Stop. Do not record.** The central claim is not demonstrable. Fix the secret binding first. |
-| The first run shows no clarifying question | You pasted a brief that has the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
-| The first run shows more than one question | Same cause, different direction: the brief lost more than the audience line. |
+| The run hangs past ~20 seconds | Intake is ~4.5s, so do not panic early. Past twenty, say "the container is waking up" and wait. If it does not resolve, stop and restart the take. |
+| No clarifying question on the first run | You pasted a brief containing the audience line. Stop, restore the exact text above, restart — the middle of the script depends on being asked. |
 | Findings are not three then two | You changed the brief. Stop, restore, restart. |
+| The render button is missing | The queue is not empty. Rendering is gated on approval by design — close the remaining item. |
+| The render fails or is filtered | Say what the screen says. A safety-filtered clip is a real outcome the system reports honestly; do not talk over it. Then go to tab 5. |
+| The upload audit is skipped | Read the reason aloud. "It could not audit, and it says why" is a better look than pretending it did. |
 | A poll 404s | You are on more than one instance. `--max-instances=1` was not applied. Stop and fix. |
-| You fluff a sentence | Keep going. It is a technical demo, not a performance. Restarting costs more than a stumble. |
+| You fluff a sentence | Keep going. It is a technical demo, not a performance. |
 
 ---
 
@@ -246,11 +248,15 @@ You cannot cut, so decide these now rather than freezing on camera.
 
 The video is a claim, and everything in it has to survive a judge opening the repo.
 
-- **Do not say Firestore, Pub/Sub, or Cloud Storage.** None are wired up. The
-  architecture diagram draws them dashed for exactly this reason.
-- **Do not call the four production agents "AI agents"** in a way that implies they call
-  a model. They do not. Saying so out loud, as the script does, is a strength — it is
-  what makes the Gemini claim credible.
-- **Do not describe the generated prose as good.** It is templated and a judge will see
-  that. The script gets ahead of it by saying the checking is the point.
+- **Do not say Pub/Sub or Cloud Storage.** Neither is wired up; the job queue is
+  in-process and the architecture diagram draws them dashed for exactly this reason.
+  (Firestore *is* wired up now — say it.)
+- **Do not call Planning, Asset, Prompt or Critic "AI agents"** in a way that implies
+  they call a model. They do not, and saying so out loud is a strength — it is what
+  makes the Gemini claim credible.
+- **Do not claim frame-accurate cut detection.** The conformance audit matches by
+  content, its statuses are coarse on purpose, and it reports timing without failing it.
+  The UI says so; the narration must not contradict the UI.
+- **Do not describe a verdict as a decision.** Every audit is advisory — a fail marks
+  footage, it never blocks or deletes it. The human decides.
 - **Do not promise the roadmap.** Nobody is scoring what you plan to build.
