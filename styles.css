@@ -533,33 +533,41 @@ textarea {
   }
 }
 
-/* Hero-shot render panel (packet view) */
+/* Hero-shot render panel and audit results (packet view).
+   NOTE: this app's palette is --ink / --muted / --line on a light --paper.
+   An earlier version of this block used --text and --border, which do not
+   exist here, so the fallbacks (dark-theme colours) applied and the verdict
+   text rendered near-white on white. Use the real variables. */
 .render-status {
-  color: var(--muted, #8b949e);
+  color: var(--muted);
   font-size: 0.9rem;
   margin: 0;
 }
 
-.render-video {
+/* The :not([hidden]) matters: a bare display:block would override the hidden
+   attribute, and the empty player showed before any render had happened. */
+.render-video:not([hidden]) {
   display: block;
+}
+
+.render-video {
   width: 100%;
-  max-width: 460px;
+  max-width: 420px;
   margin-top: 14px;
   border-radius: 10px;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--line);
   background: #000;
 }
 
-/* Render Critic verdicts under the clip */
 .render-audit {
   margin-top: 14px;
-  max-width: 460px;
+  max-width: 620px;
 }
 
 .render-audit-title {
-  color: var(--muted, #8b949e);
-  font-size: 0.8rem;
-  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   margin: 0 0 8px;
 }
@@ -568,11 +576,11 @@ textarea {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  padding: 8px 10px;
-  border: 1px solid var(--border, #30363d);
+  padding: 9px 12px;
+  border: 1px solid var(--line);
   border-radius: 8px;
   margin-bottom: 6px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--panel);
 }
 
 .render-verdict-mark {
@@ -581,25 +589,43 @@ textarea {
   text-align: center;
 }
 
-.render-verdict-pass .render-verdict-mark { color: #7ee787; }
-.render-verdict-fail .render-verdict-mark { color: #ff9492; }
-.render-verdict-cannot_tell .render-verdict-mark { color: #d29922; }
+.render-verdict-pass .render-verdict-mark,
+.render-verdict-present .render-verdict-mark { color: var(--mint-strong); }
+.render-verdict-fail .render-verdict-mark,
+.render-verdict-missing .render-verdict-mark { color: var(--danger); }
+.render-verdict-cannot_tell .render-verdict-mark,
+.render-verdict-uncertain .render-verdict-mark,
+.render-verdict-unplanned .render-verdict-mark { color: var(--gold); }
 
 .render-verdict-check {
-  font-size: 0.88rem;
-  color: var(--text, #e6edf3);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .render-verdict-evidence {
-  font-size: 0.8rem;
-  color: var(--muted, #8b949e);
-  margin-top: 2px;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 3px;
 }
 
-.render-audit-skipped {
-  color: var(--muted, #8b949e);
-  font-size: 0.85rem;
-  margin: 0;
+.render-verdict-out,
+.render-verdict-unplanned {
+  border-style: dashed;
+}
+
+.render-verdict-out .render-verdict-mark { color: var(--muted); }
+
+.render-verdict-out .render-verdict-check {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.render-audit-skipped,
+.render-audit-scope {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 12px 0 8px;
 }
 
 .upload-row {
@@ -611,26 +637,7 @@ textarea {
 }
 
 .upload-row input[type="file"] {
-  color: var(--muted, #8b949e);
+  color: var(--muted);
   font-size: 0.85rem;
   max-width: 320px;
 }
-
-.render-verdict-out {
-  opacity: 0.72;
-  border-style: dashed;
-}
-
-.render-verdict-out .render-verdict-mark { color: #6e7681; }
-
-.render-audit-scope {
-  color: var(--muted, #8b949e);
-  font-size: 0.8rem;
-  margin: 12px 0 8px;
-}
-
-.render-verdict-present .render-verdict-mark { color: #7ee787; }
-.render-verdict-missing .render-verdict-mark { color: #ff9492; }
-.render-verdict-uncertain .render-verdict-mark { color: #d29922; }
-.render-verdict-unplanned .render-verdict-mark { color: #d29922; }
-.render-verdict-unplanned { border-style: dashed; }

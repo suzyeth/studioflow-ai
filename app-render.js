@@ -346,6 +346,9 @@ function switchView(viewId) {
   nodes.navItems.forEach((item) =>
     item.classList.toggle("active", item.dataset.view === viewId),
   );
+  // Views share one scroll position, so switching while scrolled down landed
+  // the reader on blank space below the new view's content.
+  window.scrollTo({ top: 0 });
 }
 
 // Intake's questions are answerable. Answering them re-runs the workflow against
