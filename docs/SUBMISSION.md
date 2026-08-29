@@ -143,6 +143,19 @@ whole words rather than substrings, because `ton` matching `tone` would put a fa
 violation in front of a human. Two rules govern every check: read real generated output,
 and stay silent when the brief says nothing about you.
 
+**An auditor has to know what it is entitled to judge.** The first version of the
+Render Critic asked the rendered hero shot every constraint in the brief, and it was
+wrong in both directions at once. It failed the clip for "include a clear CTA" — true
+of the clip, but the CTA lives at 0:26 and the clip covers 0:10-0:15, so the shot was
+blamed for the film's job. And it *passed* "show the product in the first 5 seconds"
+because the product appeared at 0:01 **of the clip**, while in the film that shot
+starts at 0:10 — a clip does not carry the film's clock, so the verdict was
+meaningless. Both are the same mistake: applying a whole-film standard to one shot.
+The Critic now scopes its checks — prohibitions bind every frame, a CTA constraint is
+answered only by the CTA shot, timing windows belong to the plan Critic that has the
+timings — and reports what it did *not* judge, with the reason. A silently dropped
+constraint reads exactly like a constraint that passed.
+
 **Prove a check is guarded by breaking it.** Every Critic check was verified by
 deliberately breaking it and confirming the suite went red. Six mutations, six failures.
 A test that passes tells you nothing until you have seen it fail for the right reason.
