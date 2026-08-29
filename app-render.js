@@ -228,6 +228,23 @@ function renderVerdictList(container, audit, title) {
           </div>`,
       )
       .join("")}
+    ${
+      (audit.out_of_scope || []).length > 0
+        ? `<p class="render-audit-scope">Not judged from this footage — ${audit.out_of_scope.length} constraint(s) it cannot answer for:</p>` +
+          audit.out_of_scope
+            .map(
+              (entry) => `
+                <div class="render-verdict render-verdict-out">
+                  <span class="render-verdict-mark">—</span>
+                  <div>
+                    <div class="render-verdict-check">${escapeHtml(entry.check)}</div>
+                    <div class="render-verdict-evidence">${escapeHtml(entry.reason)}</div>
+                  </div>
+                </div>`,
+            )
+            .join("")
+        : ""
+    }
   `;
   container.hidden = false;
 }

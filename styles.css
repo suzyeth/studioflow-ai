@@ -615,3 +615,16 @@ textarea {
   font-size: 0.85rem;
   max-width: 320px;
 }
+
+.render-verdict-out {
+  opacity: 0.72;
+  border-style: dashed;
+}
+
+.render-verdict-out .render-verdict-mark { color: #6e7681; }
+
+.render-audit-scope {
+  color: var(--muted, #8b949e);
+  font-size: 0.8rem;
+  margin: 12px 0 8px;
+}

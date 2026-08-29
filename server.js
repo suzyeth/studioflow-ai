@@ -405,12 +405,19 @@ async function handleApi(req, res, pathname) {
       // reports the audit as skipped rather than inventing verdicts.
       let audit = null;
       if (status === "done" && result.video) {
+        const shotsData = latestArtifact(run, "shots")?.data;
         audit = await runRenderCritic(
           {
             video: result.video,
             mimeType: result.mimeType,
             constraints: run.brief?.structured_brief?.constraints || [],
-            subject: latestArtifact(run, "shots")?.data?.subject,
+            subject: shotsData?.subject,
+            // Scoped to the single shot that was rendered: most of the film's
+            // constraints are not this clip's to answer, and judging them here
+            // produced false verdicts in both directions. See the note at the
+            // top of lib/agents/render-critic.js.
+            shot: shotsData?.shots?.find((entry) => entry.id === run.render?.shot_id) || null,
+            scope: "shot",
           },
           { provider },
         );
@@ -505,6 +512,9 @@ async function handleApi(req, res, pathname) {
           mimeType: contentType.split(";")[0],
           constraints: run.brief.structured_brief.constraints || [],
           subject: latestArtifact(run, "shots")?.data?.subject,
+          // A delivered cut is the whole film, so every constraint is fair
+          // game — unlike a single rendered shot.
+          scope: "delivery",
         },
         { provider },
       );

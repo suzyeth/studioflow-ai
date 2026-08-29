@@ -11,7 +11,7 @@ const path = require("path");
 const { spawn } = require("child_process");
 const { createVeoRenderer } = require("../lib/veo");
 const { createGeminiProvider } = require("../lib/llm");
-const { runRenderCritic } = require("../lib/agents/render-critic");
+const { buildChecks, runRenderCritic } = require("../lib/agents/render-critic");
 
 const PORT = 4198;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -260,6 +260,72 @@ async function runToSettled(briefText) {
   );
   assert.equal(unitAudit.verdicts[1].check, "no dogs");
 
+  // --- scoping: a clip is only asked what a clip can answer -------------------
+  // The bug this prevents, seen live before it was fixed: rendering the hero
+  // shot of a 30s film and asking "does it include a clear CTA?" failed the
+  // clip for the film's job, while "show the product in the first 5 seconds"
+  // PASSED off the clip's own clock even though that shot starts at 0:10.
+  const FILM = [
+    "Show the product in the first 5 seconds",
+    "avoid health claims",
+    "include a clear CTA",
+    "deliver for Instagram Reels",
+  ];
+  const heroShot = { id: "shot_3", is_hero: true, is_cta: false };
+  const ctaShot = { id: "shot_6", is_hero: false, is_cta: true };
+
+  const heroScope = buildChecks(FILM, "a coffee brand", { scope: "shot", shot: heroShot });
+  assert.deepEqual(
+    heroScope.checks,
+    ["The subject — a coffee brand — appears clearly in the clip", "avoid health claims"],
+    "a hero clip answers for the subject and for prohibitions, nothing else",
+  );
+  assert.deepEqual(
+    heroScope.outOfScope.map((entry) => entry.check),
+    ["Show the product in the first 5 seconds", "include a clear CTA", "deliver for Instagram Reels"],
+    "timing, another shot's CTA, and delivery are reported as out of scope, not judged",
+  );
+  assert.ok(
+    heroScope.outOfScope.every((entry) => entry.reason && entry.reason.length > 10),
+    "every skipped constraint carries a reason — a silent drop reads as a pass",
+  );
+
+  // The CTA shot is the one that answers for the CTA, and it does not answer
+  // for the subject reveal.
+  const ctaScope = buildChecks(FILM, "a coffee brand", { scope: "shot", shot: ctaShot });
+  assert.ok(ctaScope.checks.includes("include a clear CTA"));
+  assert.ok(!ctaScope.checks.some((check) => check.startsWith("The subject")));
+
+  // A delivered cut is the whole film: everything is fair game.
+  const deliveryScope = buildChecks(FILM, "a coffee brand", { scope: "delivery" });
+  assert.equal(deliveryScope.checks.length, FILM.length + 1);
+  assert.deepEqual(deliveryScope.outOfScope, []);
+
+  // Nothing in scope means no model call at all — being told "out of scope"
+  // is not worth a paid multimodal request.
+  let called = 0;
+  const counting = {
+    name: "gemini",
+    async generateJsonFromVideo() {
+      called += 1;
+      return { verdicts: [] };
+    },
+  };
+  const nothingToAsk = await runRenderCritic(
+    {
+      video: Buffer.from("x"),
+      constraints: ["deliver for Instagram Reels"],
+      subject: "x",
+      shot: ctaShot,
+      scope: "shot",
+    },
+    { provider: counting },
+  );
+  assert.equal(nothingToAsk.status, "done");
+  assert.deepEqual(nothingToAsk.verdicts, []);
+  assert.equal(nothingToAsk.out_of_scope.length, 2);
+  assert.equal(called, 0, "no model call when there is nothing in scope to ask");
+
   // A provider that cannot watch video skips honestly instead of guessing.
   const blind = await runRenderCritic(
     { video: clip, constraints: [], subject: "x" },
@@ -276,7 +342,9 @@ async function runToSettled(briefText) {
     },
   };
   const mismatched = await runRenderCritic(
-    { video: clip, constraints: ["a", "b"], subject: "x" },
+    // Prohibitions, so both stay in scope and three checks are expected —
+    // the point here is the count mismatch, not the scoping.
+    { video: clip, constraints: ["no dogs", "no cats"], subject: "x" },
     { provider: miscounting },
   );
   assert.equal(mismatched.status, "skipped");
