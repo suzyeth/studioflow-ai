@@ -2,6 +2,10 @@
 
 *Built for the All Things Agentic Hackathon — **The Collaborative Partner** track.*
 
+**[Open the live Cloud Run demo](https://studioflow-ai-334984245629.us-central1.run.app)**
+
+[![Test](https://github.com/suzyeth/studioflow-ai/actions/workflows/test.yml/badge.svg)](https://github.com/suzyeth/studioflow-ai/actions/workflows/test.yml)
+
 **A constraint-compliance workflow for video briefs.** It turns an ambiguous brief
 into a production packet where
 **every stated constraint has been checked, and every failed check is traceable to the
@@ -22,20 +26,20 @@ produces none. Requesting a revision reruns the affected agents with the reviewe
 constraint enforced, so the artifact content changes rather than only its version
 number.
 
-**Be clear-eyed about the creative quality.** The generated prose is templated — the
-shot list reads as structure, not as writing, and it will until a model is wired into
-the production agents. The constraint checking, routing, rerun, and audit trail are
-the parts that work today and the parts worth judging.
+**Be clear-eyed about the creative quality.** Gemini can structure intake and write
+descriptions over the Shot Agent's fixed timing skeleton. Planning, assets, prompts,
+and the first-pass Critic remain deterministic. The constraint checking, routing,
+rerun, and audit trail are the parts that work today and the parts worth judging.
 
 Execution is asynchronous: `POST /api/workflow/run` returns `202` with a queued run,
 a worker executes the agents one task at a time, and the client polls to watch the
 task graph advance.
 
-What is still missing: only the Intake Agent can call a model — the rest are
-deterministic generators. The queue is in-process rather than Pub/Sub, and nothing
-persists across a restart. The Google Cloud services described below are the target
-architecture, not yet wired up; the API surface is frozen so they can be swapped in
-behind the same routes. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The hosted path uses Gemini for Intake and optionally Shot descriptions, mirrors run
+state to Firestore, and can render one approved hero shot with Veo. The queue is still
+in-process rather than Pub/Sub, so the Cloud Run service is deliberately constrained
+to one instance. This is a live prototype, not a production-scale queueing system.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the deployed shape and caveats.
 
 Every artifact carries `generated_by` so its provenance is visible rather than
 implied.
@@ -44,11 +48,11 @@ implied.
 
 ![StudioFlow AI architecture](docs/architecture.svg)
 
-The diagram draws the system **as built**, not the target architecture. Firestore and
-Pub/Sub are dashed and labelled planned because neither is wired up — drawing them
-solid would be a false claim. Also worth reading off it: only the Intake Agent calls a
-model, the run store is an in-memory `Map` that is lost on restart, and the same
-browser scripts run the entire workflow offline from `file://`.
+The diagram draws the system **as built**, not the target architecture. Firestore is
+a solid write-through mirror; Pub/Sub remains dashed and planned. The in-memory `Map`
+is still the synchronous source of truth while Firestore rehydrates a miss after a
+restart. Intake and Shot can call models, and the same browser scripts still run the
+entire workflow offline from `file://`.
 
 ## Intake Agent
 
@@ -116,16 +120,15 @@ Two failure rules matter:
   (`STUDIOFLOW_LLM=gemini` with no `GEMINI_API_KEY`) refuses to start rather than
   silently downgrading.
 
-The hosted adapters were written without an API key available, so they have never
-reached a live endpoint. They *are* exercised against a local stub server in
-`tests/async.test.js`, which covers request construction, response parsing, fenced
-JSON, HTTP errors, non-JSON replies, and timeout aborts. What remains unverified is
-authentication and real model behaviour — point `GEMINI_BASE_URL` /
-`ANTHROPIC_BASE_URL` elsewhere to test against your own stub.
+The Gemini adapter has been exercised against the real API locally and from Cloud
+Run. Those calls exposed schema and inference errors that the stub tests could not;
+the fixes are now covered by the offline suites in `tests/`. The Anthropic adapter is
+comparison-only and remains stub-tested rather than part of the deployed path.
 
-**Not yet done:** no Gemini key and no Cloud Run deployment — the two things the
-track actually requires. Both are blocked on account access rather than code. See
-[TODO.md](TODO.md).
+The live service reports its active provider, model, Firestore mirror, Cloud Run
+revision, and Veo renderer through `/api/health`. See [TODO.md](TODO.md) for the dated
+verification record and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for production
+caveats.
 
 ## Current Docs
 
@@ -269,7 +272,8 @@ npm start            # http://localhost:4173
 ```
 
 That runs the keyless path — `/api/health` will report `"intake_provider": "local"`.
-Everything in this README works at that point except a real model call.
+The complete review loop works locally; Gemini, Firestore, and Veo require their
+respective credentials and cloud configuration.
 
 **To run the Intake Agent on Gemini**, get a key from
 [Google AI Studio](https://aistudio.google.com/apikey) (free tier, no billing account
@@ -323,15 +327,15 @@ gcloud run deploy studioflow-ai \
 
 Two flags deserve an explanation rather than a copy-paste.
 
-`--max-instances=1` is **required for correctness today**, not for cost. The run store
-is an in-memory `Map` and the client polls: with several instances, `POST /run` lands
-on one and the next poll hits another, which returns 404. Firestore
-([TODO.md](TODO.md) item 4) is what removes this constraint.
+`--max-instances=1` is still **required for correct review sequencing today**, not for
+durability. Firestore mirrors completed state and rehydrates a `Map` miss, but the
+queue and concurrent review actions remain in-process. Multiple instances could
+therefore race on the same run.
 
-`--min-instances=1` would also be needed to survive scale-to-zero, since a cold start
-wipes every in-flight run — but **it bills for an always-allocated container**, so it
-is deliberately left out above. Set it only for the window in which you are recording
-the demo or being judged, and set it back to `0` afterwards:
+`--min-instances=1` avoids interrupting an in-flight job during a demo, but **it bills
+for an always-allocated container**. Firestore preserves completed runs across a
+restart or scale-to-zero; it does not make an in-flight in-process job durable. Set a
+minimum instance only for a testing window, then return it to `0`:
 
 ```bash
 gcloud run services update studioflow-ai --region us-central1 --min-instances=1
@@ -451,28 +455,28 @@ Technical posture, and where each part actually stands:
 
 | | Status |
 | --- | --- |
-| Gemini 3.5 or later | `gemini-3.6-flash` is the default and the code path is live — but no real call has been made yet, so treat it as unproven until `/api/health` reports `gemini` |
+| Gemini 3.5 or later | **Live** — `gemini-3.5-flash-lite` is the measured default; `/api/health` reports the provider and model actually in use |
 | Google ADK or GenAI SDK | **Done** — `@google/genai` is in the runtime path, in `lib/llm.js` |
-| Cloud Run | Not deployed. Dockerfile and the steps above are ready |
-| Firestore | Not wired up. The store interface was kept narrow for it |
+| Cloud Run | **Live** — public demo deployed in `us-central1` |
+| Firestore | **Live as a write-through mirror** — completed runs survive restart and scale-to-zero |
 | Pub/Sub or Cloud Tasks | Not wired up. `lib/queue.js` is the seam |
 | Cloud Storage | Not used |
-| Cloud Logging | `trace_id` is on every task, artifact and audit event, so the correlation works with no code change once deployed |
+| Veo | **Live after approval** — one capped hero-shot render per run; the first clip was generated on 2026-08-28 |
+| Cloud Logging | `trace_id` is on every task, artifact and audit event for correlation |
 
 The project should be judged as a workflow execution system: the agent takes
 responsibility for moving creative production forward, while keeping humans in
 control at important review points.
 
-## Near-Term Backend Path
+## Production Gaps
 
-The server has exactly one runtime dependency — `@google/genai`, used by the Gemini
-adapter — and nothing else, so the prototype still runs anywhere. The Cloud Run version
-should preserve the same API shape while swapping local seed data for Google Cloud
-services:
+The public Cloud Run service proves the end-to-end prototype, but it is intentionally
+not presented as production infrastructure. The remaining gaps are concrete:
 
-- `/api/demo` reads project seed data from Firestore.
-- `/api/workflow/run` creates a workflow run, stores tasks, and dispatches jobs
-  through Pub/Sub or Cloud Tasks.
-- Worker endpoints call Gemini through Google ADK or the GenAI SDK.
-- Generated artifacts are written to Cloud Storage.
-- Audit events include Cloud Logging trace IDs.
+- replace the in-process queue with Pub/Sub or Cloud Tasks before allowing multiple
+  instances;
+- make review actions transactional so two reviewers cannot race on one run;
+- move generated media to Cloud Storage instead of keeping only provider references;
+- add reliability and cost measurements over a larger set of briefs;
+- capture the deployment, health response, full revision loop, and trace-filtered
+  logs as submission evidence.
